@@ -496,15 +496,15 @@ EVIDENCE_RULES = [
 # ---------------------------------------------------------------- services & pricing
 # Bump CATALOG_VERSION whenever the owner changes prices/products: the seed then applies the
 # prices below even over existing rows (otherwise admin-edited prices are never overwritten).
-CATALOG_VERSION = 2
+CATALOG_VERSION = 3  # v3: all prices in EUR
 
 # Destinations where preparing/lodging someone's visa application for a fee is regulated immigration
 # advice that only licensed advisers may give (UK OISC, Canada CICC, Australia OMARA, NZ IAA).
 LICENSED_ADVICE_COUNTRIES = ["GB", "CA", "AU", "NZ"]
 
-_LETTER = dict(kind="writing", price_cents=1000, currency="USD", sla_hours=24)
+_LETTER = dict(kind="writing", price_cents=1000, currency="EUR", sla_hours=24)
 SERVICES = [
-    dict(code="free_assessment", kind="assessment", name="Free file-strength assessment", price_cents=0, currency="USD", sort_order=1,
+    dict(code="free_assessment", kind="assessment", name="Free file-strength assessment", price_cents=0, currency="EUR", sort_order=1,
          description="Find out how strong your visa file is — free.",
          inclusions=["Secure application workspace", "Personal profile assessment", "Up to 40 document uploads (15 MB each; PDF, JPG, PNG)",
                      "Document reading, classification and consistency checks", "Personalised country-specific checklist",
@@ -519,10 +519,10 @@ SERVICES = [
                      "Suggested drafts: cover letter, SOP outline and every explanation / sponsorship letter your file needs",
                      "Unlocked instantly for this application, including future reassessments"],
          exclusions=["Drafts are templates built from your own information — you must complete and check every detail truthfully"]),
-    dict(code="sop", kind="writing", name="Statement of Purpose — complete, strongest version", price_cents=2000, currency="USD", sla_hours=24, sort_order=10,
+    dict(code="sop", kind="writing", name="Statement of Purpose — complete, strongest version", price_cents=2000, currency="EUR", sla_hours=24, sort_order=10,
          description="We write your full SOP: truthful, specific to your course and background, and structured the way decision-makers read it.",
          required_information=["Offer letter", "Academic certificates and transcripts", "CV", "Your answers to our SOP questionnaire (sent by email)"]),
-    dict(code="relationship_portfolio", kind="writing", name="Relationship portfolio", price_cents=2000, currency="GBP", sla_hours=24, sort_order=11,
+    dict(code="relationship_portfolio", kind="writing", name="Relationship portfolio", price_cents=2000, currency="EUR", sla_hours=24, sort_order=11,
          description="We arrange your relationship evidence into an indexed portfolio with a dated relationship timeline and summary.",
          required_information=["Marriage / partnership certificate (if any)", "Photos, chat and call history, travel and shared-address evidence",
                                "Joint financial records", "Key dates of your relationship"]),
@@ -545,12 +545,12 @@ SERVICES = [
          disclaimer="This is a draft only. It is not certified, notarised or legally approved. It must be reviewed and executed before a lawyer, notary or commissioner for oaths.", **_LETTER),
     dict(code="other_letter", name="Other supporting letter", sort_order=28, description="Any other supporting letter. Complex legal documents need a separate quotation.",
          required_information=["Description of the letter you need"], **_LETTER),
-    dict(code="visa_form_filling", kind="writing", name="Visa application form filling", price_cents=1000, currency="USD", sla_hours=24, sort_order=40,
+    dict(code="visa_form_filling", kind="writing", name="Visa application form filling", price_cents=1000, currency="EUR", sla_hours=24, sort_order=40,
          description="We complete your visa application form from your documents and email it to you within 24 hours — carefully checked, with unlimited free amendments until you are happy.",
          required_information=["Passport", "All supporting documents", "Answers to our application questionnaire"],
          restricted_countries=LICENSED_ADVICE_COUNTRIES,
          disclaimer="You review and confirm every answer before it is submitted; you remain responsible for its accuracy. Not available where completing visa forms for a fee requires a licensed immigration adviser."),
-    dict(code="online_submission", kind="writing", name="Online document submission", price_cents=2000, currency="USD", sla_hours=24, sort_order=41,
+    dict(code="online_submission", kind="writing", name="Online document submission", price_cents=2000, currency="EUR", sla_hours=24, sort_order=41,
          description="With your written authorisation, we upload your documents to the official online application portal for you.",
          required_information=["Signed authorisation", "Final, approved documents", "Portal access as instructed by email"],
          restricted_countries=LICENSED_ADVICE_COUNTRIES,

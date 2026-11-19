@@ -144,7 +144,7 @@ def seed_services(db: Session) -> None:
         # Prices: set on creation or when the catalogue version changes; otherwise keep admin edits.
         if existing is None or apply_prices:
             row.price_cents = s.get("price_cents")
-            row.currency = s.get("currency", "USD")
+            row.currency = s.get("currency", "EUR")
         row.sla_hours = s.get("sla_hours")
         row.required_information = s.get("required_information", [])
         row.inclusions, row.exclusions = s.get("inclusions", []), s.get("exclusions", [])

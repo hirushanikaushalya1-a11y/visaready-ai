@@ -31,7 +31,7 @@ class ServiceCatalogItem(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
     price_cents: Mapped[int | None] = mapped_column(Integer)  # None => quotation required
-    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    currency: Mapped[str] = mapped_column(String(3), default="EUR")
     sla_hours: Mapped[int | None] = mapped_column(Integer)
     required_information: Mapped[list] = mapped_column(JSONB, default=list)
     inclusions: Mapped[list] = mapped_column(JSONB, default=list)
@@ -148,7 +148,7 @@ class TranslationOrder(IdMixin, TimestampMixin, Base):
     language_pair: Mapped[str] = mapped_column(String(10))  # si-en | ta-en
     page_count: Mapped[int | None] = mapped_column(Integer)
     quote_cents: Mapped[int | None] = mapped_column(Integer)
-    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    currency: Mapped[str] = mapped_column(String(3), default="EUR")
     translation_type: Mapped[str] = mapped_column(String(20), default="sworn")  # sworn | ai_draft
     status: Mapped[str] = mapped_column(String(30), default="quote_requested")
     # quote_requested -> quoted -> payment_pending -> paid -> assigned -> in_progress -> quality_review -> delivered

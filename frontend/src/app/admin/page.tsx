@@ -27,7 +27,7 @@ export default function AdminHome() {
         <Card><Stat label="Applicants" value={data.users} /></Card>
         <Card><Stat label="Active applications" value={data.applications.active} hint={`${data.applications.draft} drafts · ${data.applications.completed} completed`} /></Card>
         <Card><Stat label="Assessments (7 days)" value={data.assessments_7d} /></Card>
-        <Card><Stat label="Revenue (30 days)" value={money(data.revenue_30d_cents)} hint={`${data.sandbox_payments_30d} test-mode payments excluded`} /></Card>
+        <Card><Stat label="Revenue (30 days)" value={money(data.revenue_30d_cents, "EUR")} hint={`${data.sandbox_payments_30d} test-mode payments excluded`} /></Card>
         <Card><Stat label="Open writing orders" value={data.writing_orders_open} /></Card>
         <Card><Stat label="Requirements awaiting verification" value={data.requirements_pending_review} hint={<Link href="/admin/knowledge" className="text-accent">Review</Link>} /></Card>
         <Card><Stat label="Deletion requests" value={data.deletion_requests_open} /></Card>

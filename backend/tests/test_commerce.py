@@ -180,11 +180,12 @@ def test_services_catalog_prices_from_db(client):
     s = {x["code"]: x for x in client.get("/api/services").json()}
     assert s["free_assessment"]["price_cents"] == 0
     assert (s["assessment_report"]["price_cents"], s["assessment_report"]["currency"]) == (3500, "EUR")
-    assert (s["sop"]["price_cents"], s["sop"]["currency"]) == (2000, "USD")
-    assert (s["relationship_portfolio"]["price_cents"], s["relationship_portfolio"]["currency"]) == (2000, "GBP")
+    assert (s["sop"]["price_cents"], s["sop"]["currency"]) == (2000, "EUR")
+    assert (s["relationship_portfolio"]["price_cents"], s["relationship_portfolio"]["currency"]) == (2000, "EUR")
     for code in ("cover_letter", "consent_letter", "explanation_letter", "sponsorship_letter"):
-        assert (s[code]["price_cents"], s[code]["currency"]) == (1000, "USD")
+        assert (s[code]["price_cents"], s[code]["currency"]) == (1000, "EUR")
     assert s["visa_form_filling"]["price_cents"] == 1000 and s["online_submission"]["price_cents"] == 2000
+    assert {x["currency"] for x in s.values() if x["price_cents"]} == {"EUR"}  # every price is in euro
     assert set(s["visa_form_filling"]["restricted_countries"]) == {"GB", "CA", "AU", "NZ"}
     assert "not certified" in s["affidavit_draft"]["disclaimer"]
     assert "assessment" not in s and "reassessment" not in s and "human_review" not in s
@@ -193,7 +194,7 @@ def test_services_catalog_prices_from_db(client):
 def test_letters_priced_per_letter_and_licensing_restriction(applicant):
     client, _ = applicant
     o = client.post("/api/writing-orders", json={"service_code": "consent_letter", "quantity": 3}).json()
-    assert o["price"] == "30.00" and o["currency"] == "USD" and o["quantity"] == 3
+    assert o["price"] == "30.00" and o["currency"] == "EUR" and o["quantity"] == 3
     uk = create_app(client, country="GB")
     r = client.post("/api/writing-orders", json={"service_code": "visa_form_filling", "application_id": uk["id"]})
     assert r.status_code == 422 and "licensed immigration adviser" in r.json()["detail"]
@@ -202,4 +203,4 @@ def test_letters_priced_per_letter_and_licensing_restriction(applicant):
     r = client.post("/api/writing-orders", json={"service_code": "visa_form_filling", "application_id": de["id"]})
     assert r.status_code == 201 and r.json()["price"] == "10.00"
     p = client.post("/api/writing-orders", json={"service_code": "relationship_portfolio"}).json()
-    assert (p["price"], p["currency"]) == ("20.00", "GBP")
+    assert (p["price"], p["currency"]) == ("20.00", "EUR")

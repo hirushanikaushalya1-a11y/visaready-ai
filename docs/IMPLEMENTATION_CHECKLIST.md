@@ -47,10 +47,10 @@ _Last updated: end of build session 1 (Phases 1–3 delivered; foundations for 4
 | Free file-strength assessment (applications active on creation, 10 runs) | ✅ |
 | €35 full report unlock: printable report, printable submission file, suggested drafts | ✅ |
 | Suggested drafts generator (cover letter, SOP outline, study gap, sponsorship, source of funds, refusal response, career change, relationship statement, consent) — built only from applicant facts with [prompts] | ✅ |
-| New catalogue: SOP $20, relationship portfolio £20, letters $10 each (quantity), form filling $10, online submission $20 | ✅ |
+| New catalogue, all in EUR: report €35, SOP €20, relationship portfolio €20, letters €10 each (quantity), form filling €10, online submission €20 | ✅ |
 | Licensing guard: form filling / submission refused for GB, CA, AU, NZ | ✅ |
-| Multi-currency display (€ / $ / £) throughout | ✅ |
-| EUR/GBP acceptance with PayHere | ⬜ confirm with PayHere before going live |
+| Euro pricing throughout (multi-currency capable) | ✅ |
+| EUR acceptance with PayHere | ⬜ confirm with PayHere before going live |
 
 ## Phase 4 — Translation marketplace
 🧱 Tables `translators`, `translation_orders`, role & least-privilege permissions, service catalogue entries (quotation), automatic "needs certified translation" detection (Sinhala/Tamil script) — ✅. Ordering UI, quotation, translator dashboard — ⬜.
