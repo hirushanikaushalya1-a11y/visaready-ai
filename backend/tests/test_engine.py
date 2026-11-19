@@ -2,7 +2,7 @@
 import pytest
 
 from app.services.evidence.conditions import evaluate, validate, ConditionError
-from tests.conftest import mrz, paid_app, pdf_bytes, upload
+from tests.conftest import make_client, mrz, paid_app, pdf_bytes, register, upload
 
 PROFILE = {
     "given_names": "Nimal Kumar", "family_name": "Perera", "date_of_birth": "1999-03-05", "nationality": "LK",
@@ -196,3 +196,39 @@ def test_condition_evaluator():
     assert evaluate({"fact": "missing.path", "op": "exists"}, facts) is False
     with pytest.raises(ConditionError):
         validate({"fact": "a.x", "op": "__import__"})
+
+
+def test_case_file_builder(applicant):
+    client, _ = applicant
+    app = _setup(client)
+    v = _assess(client, app["id"])
+    f = client.get(f"/api/assessments/{v['id']}/case-file").json()
+    codes = [s["code"] for s in f["sections"]]
+    assert codes[0] == "A" and codes == sorted(codes)  # identity first, decision-maker reading order
+    a1 = f["sections"][0]["entries"][0]
+    assert a1["ref"] == "A1" and a1["documents"][0]["filename"] == "passport.pdf"
+    assert f["status"] == "not_ready" and any("English" in b["title"] for b in f["before_lodging"])
+    assert f["progress"]["included"] < f["progress"]["total"]
+    where = {e["title"]: sec["code"] for sec in f["sections"] for e in sec["entries"]}
+    assert where["Evidence of your relationship to your financial sponsor"] == "C"
+    assert where["Employment confirmation for each declared job"] == "E"
+    html = client.get(f"/api/assessments/{v['id']}/case-file/print")
+    assert html.status_code == 200 and "Submission file" in html.text and "A1" in html.text
+    other = make_client(); register(other)
+    assert other.get(f"/api/assessments/{v['id']}/case-file").status_code == 404
+
+
+def test_new_zealand_student_requirements(applicant):
+    client, _ = applicant
+    client.put("/api/profile", json=PROFILE)
+    a = paid_app(client, country="NZ", details=DETAILS)
+    for lines, name, t in ((PASSPORT, "passport.pdf", "passport"), (SPONSOR_BANK, "father_bank.pdf", "bank_statement")):
+        upload(client, a["id"], pdf_bytes(lines), name, t)
+    v = _assess(client, a["id"])
+    items = {i["item_key"]: i for i in v["checklist"]}
+    assert "req:offer-of-place" in items and items["req:offer-of-place"]["status"] == "missing"
+    assert "req:living-costs" in items and items["req:living-costs"]["status"] == "satisfied"
+    assert "req:chest-xray-medical" in items  # LK resident
+    assert "ev:nz-financial-undertaking" in items  # NZ-specific sponsor evidence
+    assert all(i["source_url"].startswith("https://www.immigration.govt.nz") for i in v["checklist"] if i["origin"] == "requirement")
+    assert not any("have not been loaded yet" in l for l in v["summary"]["limitations"])

@@ -545,3 +545,83 @@ export function FamilyMap({ app, a, reload }: { app: Application; a: Assessment 
     </div>
   );
 }
+
+// ------------------------------------------------------------------ Submission file builder
+type CaseEntry = { ref: string; title: string; status: string; status_label: string; basis: string; level: string; source_url: string | null;
+  source_verified: boolean; documents: { id: string; filename: string; pages: number | null; needs_translation: boolean }[];
+  unconfirmed_documents: { filename: string }[]; accepted_types: string[] };
+type CaseFileData = {
+  application: { title: string; country: string; visa: string }; assessment: { version: number };
+  progress: { included: number; total: number }; status: string; status_label: string;
+  sections: { code: string; title: string; entries: CaseEntry[] }[];
+  before_lodging: { title: string; severity: string; action: string | null }[];
+  explanations_to_prepare: { question: string; evidence: string[] }[]; translations_needed: string[]; notes: string[];
+};
+
+export function CaseFile({ a, onUploadFor }: { a: Assessment | null; onUploadFor: (key: string, type?: string) => void }) {
+  const [f, setF] = useState<CaseFileData | null>(null);
+  useEffect(() => { if (a) api<CaseFileData>(`/assessments/${a.id}/case-file`).then(setF).catch(() => {}); }, [a]);
+  if (!a) return <Empty title="Run an assessment first">Your submission file is assembled from your latest assessment.</Empty>;
+  if (!f) return <Spinner label="Assembling your submission file…" />;
+  const pct = f.progress.total ? (f.progress.included / f.progress.total) * 100 : 0;
+  const ready = f.status === "ready_for_final_review";
+  return (
+    <div className="space-y-5">
+      <Card className="flex flex-wrap items-center gap-5">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs uppercase tracking-wide text-ink-3">Submission file · {f.application.visa}</p>
+          <p className="mt-1 text-lg font-semibold text-ink">{f.progress.included} of {f.progress.total} items in place</p>
+          <div className="mt-2 max-w-md"><Progress value={pct} tone={ready ? "ok" : pct > 60 ? "warn" : "bad"} /></div>
+        </div>
+        <Badge tone={ready ? "ok" : "warn"} className="text-sm">{f.status_label}</Badge>
+        <a href={`/api/assessments/${a.id}/case-file/print`} target="_blank" rel="noreferrer"
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-medium text-white hover:bg-navy-2"><Download className="h-4 w-4" aria-hidden /> Print / save as PDF</a>
+      </Card>
+
+      {(f.before_lodging.length > 0 || f.translations_needed.length > 0) && (
+        <Card className="border-bad/30">
+          <SectionTitle title="Resolve before lodging" subtitle="An experienced case officer would expect these to be fixed or explained first." />
+          <ul className="space-y-2 text-sm">
+            {f.before_lodging.map((b, i) => <li key={i} className="flex gap-2"><Badge tone={severityTone[b.severity]}>{b.severity}</Badge><span><b className="text-ink">{b.title}.</b> <span className="text-ink-2">{b.action}</span></span></li>)}
+            {f.translations_needed.map((t) => <li key={t} className="flex gap-2"><Badge tone="warn">translation</Badge><span className="text-ink-2">Certified English translation needed for <b>{t}</b></span></li>)}
+          </ul>
+        </Card>
+      )}
+
+      {f.sections.map((sec) => (
+        <Card key={sec.code} className="p-0">
+          <div className="flex items-center gap-3 border-b border-line px-5 py-3">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-sm font-semibold text-white">{sec.code}</span>
+            <h3 className="font-semibold text-ink">{sec.title}</h3>
+            <span className="ml-auto text-xs text-ink-3">{sec.entries.filter((e) => e.status === "satisfied").length}/{sec.entries.length}</span>
+          </div>
+          <ul className="divide-y divide-line">
+            {sec.entries.map((e) => (
+              <li key={e.ref} className="grid grid-cols-1 gap-2 px-5 py-3 sm:grid-cols-[3rem_1fr_auto] sm:items-start">
+                <span className="font-mono text-sm font-semibold text-ink-2">{e.ref}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink">{e.title}</p>
+                  <p className="text-xs text-ink-3">{e.basis}{e.level === "mandatory" ? " · mandatory" : ""}
+                    {e.source_url && <> · <a href={e.source_url} target="_blank" rel="noreferrer" className="text-accent">source</a>{!e.source_verified && " (awaiting verification)"}</>}</p>
+                  {e.documents.map((d) => <p key={d.id} className="mt-1 flex items-center gap-1.5 text-xs text-ok"><FileText className="h-3.5 w-3.5" aria-hidden />{d.filename}{d.pages ? ` · ${d.pages} page(s)` : ""}{d.needs_translation && <span className="text-warn"> · needs translation</span>}</p>)}
+                  {e.unconfirmed_documents.map((d) => <p key={d.filename} className="mt-1 text-xs text-warn">{d.filename} — uploaded but not confirmed as the right document</p>)}
+                  {e.status === "missing" && e.accepted_types.length > 0 && <p className="mt-1 text-xs text-ink-3">Accepted: {e.accepted_types.join(", ")}</p>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge tone={e.status === "satisfied" ? "ok" : e.status === "missing" ? "bad" : "warn"}>{e.status_label}</Badge>
+                  {e.status === "missing" && <Button size="sm" variant="secondary" onClick={() => onUploadFor("", undefined)}><Upload className="h-3.5 w-3.5" aria-hidden /> Add</Button>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ))}
+
+      {f.explanations_to_prepare.length > 0 && (
+        <Card><SectionTitle title="Explanations to prepare" subtitle="Include truthful answers, supported by evidence, in your cover letter or statement." />
+          <ul className="list-disc space-y-1 pl-5 text-sm text-ink-2">{f.explanations_to_prepare.map((x) => <li key={x.question}>{x.question}</li>)}</ul></Card>
+      )}
+      <ul className="space-y-1 text-xs text-ink-3">{f.notes.map((n) => <li key={n}>• {n}</li>)}</ul>
+    </div>
+  );
+}

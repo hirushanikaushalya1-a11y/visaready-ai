@@ -10,7 +10,7 @@ import { startCheckout } from "@/lib/checkout";
 import type { Application, Assessment, Doc, Service } from "@/lib/types";
 import { PageHeader } from "@/components/shell";
 import { Alert, Badge, Button, Card, Spinner, statusTone, Tabs } from "@/components/ui";
-import { Checklist, Documents, FamilyMap, Findings, Improvements, Overview, ProofBuilder, Questions, WhatIf } from "@/components/workspace";
+import { CaseFile, Checklist, Documents, FamilyMap, Findings, Improvements, Overview, ProofBuilder, Questions, WhatIf } from "@/components/workspace";
 
 async function pollAssessment(assessmentId: string): Promise<Assessment> {
   let r = await api<Assessment>(`/assessments/${assessmentId}`);
@@ -94,6 +94,7 @@ export default function Workspace() {
             { id: "overview", label: "Overview" },
             { id: "checklist", label: "Checklist", count: a?.checklist.filter((i) => i.status !== "satisfied").length },
             { id: "documents", label: "Documents", count: docs.length },
+            { id: "casefile", label: "Submission file" },
             { id: "proof", label: "Proof Builder" },
             { id: "findings", label: "Findings", count: count(["inconsistency", "missing_evidence", "concern", "professional_review", "refusal_reason", "document_quality"]) },
             { id: "questions", label: "Questions", count: count(["question"]) },
@@ -104,6 +105,7 @@ export default function Workspace() {
           {tab === "overview" && <Overview app={app} a={a} onRun={run} running={running} />}
           {tab === "checklist" && <Checklist app={app} a={a} docs={docs} onStateChange={appQ.load} onUploadFor={(key, type) => { setPreset({ key, type }); setTab("documents"); }} />}
           {tab === "documents" && <Documents app={app} docs={docs} reload={docsQ.load} preset={preset} clearPreset={() => setPreset(null)} />}
+          {tab === "casefile" && <CaseFile a={a} onUploadFor={() => setTab("documents")} />}
           {tab === "proof" && <ProofBuilder a={a} docs={docs} />}
           {tab === "findings" && <Findings a={a} docs={docs} />}
           {tab === "questions" && <Questions a={a} />}

@@ -48,12 +48,14 @@ _Last updated: end of build session 1 (Phases 1–3 delivered; foundations for 4
 | Item | Status |
 |---|---|
 | Knowledge DB: countries (all ISO), 15 destination modules, categories, requirements, sources, versions | ✅ |
-| Seeded requirements: UK, Canada, Australia × student/work/family (47) | ✅ — **all `pending_review`** |
+| Seeded requirements: UK, Canada, Australia, **New Zealand** × student/work/family (69) | ✅ — **all `pending_review`** |
+| New Zealand module: Fee Paying Student Visa, Accredited Employer Work Visa, partner/dependant visas + NZ evidence rules (INZ 1014 Financial Undertaking, relationship history) | ✅ (researched Nov 2026; admin verification pending) |
+| **Submission File Builder**: numbered A–I case file in decision-maker reading order, document per item, lodging blockers, explanations to prepare, printable PDF | ✅ |
 | Admin requirement editing → new version + forced re-verification; verify flow | ✅ |
 | Knowledge Centre (official-source answers only, relevance floor, "we don't know") | ✅ |
 | Previous refusal analysis | ✅ (rule-based) |
 | Policy monitoring: source hash check → alert → human verify → notify affected | ✅ (outbound fetch 🟡 network) |
-| Requirements for remaining 12 destinations | ⬜ (needs research + verification) |
+| Requirements for remaining 11 destinations | ⬜ (needs research + verification) |
 
 ## Phase 6 — Advanced
 Family connection map ✅ · Policy alerts ✅ · Human review 🧱 (table + reviewer credential model; service inactive) · Analytics (basic overview) ✅ · Additional languages ⬜.

@@ -88,6 +88,9 @@ def seed_knowledge(db: Session) -> None:
             cat = VisaCategory(country_code=country, category_type=ctype, code=code, name=name, description=desc, official_url=url)
             db.add(cat)
             db.flush()
+        elif cat.name in {n for n, _ in K.GENERIC_CATEGORIES.values()}:
+            # A placeholder category now has researched content: give it its real name and source.
+            cat.name, cat.description, cat.official_url = name, desc, url
         for order, r in enumerate(reqs):
             existing = db.scalars(select(ImmigrationRequirement).where(
                 ImmigrationRequirement.visa_category_id == cat.id, ImmigrationRequirement.key == r["key"])).first()

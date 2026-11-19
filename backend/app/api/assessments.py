@@ -189,3 +189,41 @@ td,th{{border:1px solid #cbd5e1;padding:6px;font-size:13px;text-align:left}}h1{{
 <h2>Findings</h2><ol>{finds}</ol><h2>Limitations</h2><ul>{lims}</ul>
 <p class="note">{e(d['summary'].get('disclaimer', ''))}</p></body></html>"""
     return HTMLResponse(body, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/assessments/{assessment_id}/case-file")
+def case_file(assessment_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Submission File Builder: the applicant's evidence organised into a numbered, lodge-ready file."""
+    from app.services.evidence.casefile import build_case_file
+
+    return build_case_file(db, _owned_assessment(db, user, assessment_id))
+
+
+@router.get("/assessments/{assessment_id}/case-file/print", response_class=HTMLResponse)
+def case_file_print(assessment_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.services.evidence.casefile import build_case_file
+
+    f = build_case_file(db, _owned_assessment(db, user, assessment_id))
+    e = html.escape
+    secs = ""
+    for sec in f["sections"]:
+        rows = ""
+        for en in sec["entries"]:
+            docs = "<br>".join(f"{e(d['filename'])}" + (f" ({d['pages']} p.)" if d["pages"] else "") for d in en["documents"]) or "<i>—</i>"
+            rows += (f"<tr><td><b>{e(en['ref'])}</b></td><td>{e(en['title'])}<div class='m'>{e(en['basis'])}</div></td>"
+                     f"<td>{docs}</td><td class='s {e(en['status'])}'>{e(en['status_label'])}</td></tr>")
+        secs += f"<h2>{e(sec['code'])}. {e(sec['title'])}</h2><table><tr><th>Ref</th><th>Item</th><th>Document(s)</th><th>Status</th></tr>{rows}</table>"
+    block = "".join(f"<li><b>{e(b['title'])}</b> — {e(b['action'] or '')}</li>" for b in f["before_lodging"]) or "<li>None</li>"
+    expl = "".join(f"<li>{e(x['question'])}</li>" for x in f["explanations_to_prepare"]) or "<li>None</li>"
+    a = f["application"]
+    body = f"""<!doctype html><html><head><meta charset="utf-8"><title>Submission file – {e(a['title'])}</title>
+<style>body{{font-family:system-ui,sans-serif;max-width:900px;margin:32px auto;color:#0f172a;padding:0 16px;font-size:13px}}
+h1{{color:#0b1f4d;margin-bottom:4px}}h2{{margin-top:28px;border-bottom:2px solid #0b1f4d;padding-bottom:4px;font-size:15px}}
+table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #cbd5e1;padding:6px;text-align:left;vertical-align:top}}
+th{{background:#f1f5f9}}.m{{color:#64748b;font-size:11px}}.s.satisfied{{color:#157f4b}}.s.missing{{color:#b42318;font-weight:600}}
+.s.uploaded_unconfirmed{{color:#a15c07}}.box{{background:#f1f5f9;padding:12px;border-radius:8px}}</style></head><body>
+<h1>Submission file</h1><p>{e(a['title'])} · {e(a['visa'])} · {e(a['country'])}<br>Assessment v{f['assessment']['version']} ·
+{f['progress']['included']} of {f['progress']['total']} items in place · <b>{e(f['status_label'])}</b></p>
+<div class="box"><b>Resolve before lodging</b><ul>{block}</ul><b>Explanations to prepare</b><ul>{expl}</ul></div>
+{secs}<p class="m">{'<br>'.join(e(n) for n in f['notes'])}</p></body></html>"""
+    return HTMLResponse(body, headers={"Cache-Control": "no-store"})

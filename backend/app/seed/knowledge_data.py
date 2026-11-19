@@ -17,7 +17,7 @@ DESTINATIONS = [
     ("GB", "Europe", "pilot", 1),
     ("CA", "North America", "pilot", 2),
     ("AU", "Oceania", "pilot", 3),
-    ("NZ", "Oceania", "planned", 4),
+    ("NZ", "Oceania", "pilot", 4),
     ("IE", "Europe", "planned", 5),
     ("FR", "Europe", "planned", 6),
     ("IT", "Europe", "planned", 7),
@@ -38,7 +38,6 @@ SOURCE_MARKETS = ["LK", "IN", "BD", "NP"]
 
 # Official portals for countries whose detailed module is not yet populated.
 PORTALS = {
-    "NZ": ("Immigration New Zealand", "https://www.immigration.govt.nz"),
     "IE": ("Irish Immigration Service (Department of Justice)", "https://www.irishimmigration.ie"),
     "FR": ("France-Visas (Government of France)", "https://france-visas.gouv.fr"),
     "IT": ("Visto per l'Italia (Ministry of Foreign Affairs)", "https://vistoperitalia.esteri.it"),
@@ -288,10 +287,122 @@ CATEGORIES = [
 ]
 
 
+
+# ---------------------------------------------------------------- New Zealand (researched Nov 2026)
+# Sources: Immigration New Zealand (INZ) visa pages and Operational Manual. Seeded as pending_review:
+# an administrator must confirm each item on immigration.govt.nz before marking it verified.
+_INZ = "Immigration New Zealand (immigration.govt.nz)"
+_NZ_STUDENT = "https://www.immigration.govt.nz/visas/fee-paying-student-visa/"
+_NZ_AEWV = "https://www.immigration.govt.nz/opsmanual/88576.htm"
+_NZ_PARTNER = "https://www.immigration.govt.nz/opsmanual-archive/11578.HTM"
+_NZ_WORK_GUIDE = "https://www.immigration.govt.nz/assets/inz/documents/forms-and-guides/Work-Visa-Guide-INZ-1016.pdf"
+_HIGH_TB_RESIDENCE = {"fact": "applicant.residence", "op": "in", "value": ["LK", "IN", "BD", "NP"]}
+
+SOURCES += [
+    ("NZ", "Fee Paying Student Visa", _NZ_STUDENT, _INZ),
+    ("NZ", "Operational Manual WA4.10 – Determining an Accredited Employer work visa", _NZ_AEWV, _INZ),
+    ("NZ", "Operational Manual – partners of student and work visa holders (archived)", _NZ_PARTNER, _INZ),
+    ("NZ", "Work Visa Guide (INZ 1016)", _NZ_WORK_GUIDE, _INZ),
+]
+
+CATEGORIES += [
+    ("NZ", "student", "nz-student", "Fee Paying Student Visa",
+     "For full-time study with an approved New Zealand education provider, where you pay your own tuition fees.", _NZ_STUDENT, [
+        dict(key="valid-passport", title="Valid passport", level="mandatory",
+             description="A passport valid for at least 3 months beyond the date you intend to leave New Zealand.",
+             document_types=["passport"], source_url=_NZ_STUDENT),
+        dict(key="offer-of-place", title="Offer of place from an approved education provider", level="mandatory",
+             description="An offer of place for a full-time course from an education provider approved by the New Zealand Qualifications Authority, showing the course, its length and the tuition fee.",
+             document_types=["offer_letter"], source_url=_NZ_STUDENT),
+        dict(key="tuition-fees-paid", title="Evidence that tuition fees are paid", level="mandatory",
+             description="A receipt or confirmation from the education provider that your tuition fees have been paid (or that you are exempt, for example under a scholarship).",
+             document_types=["offer_letter", "other"], source_url=_NZ_STUDENT),
+        dict(key="living-costs", title="Enough money for living costs", level="mandatory",
+             description="Evidence of enough money to support yourself while studying — your own funds, or a sponsor's Financial Undertaking for Students, or an approved scholarship.",
+             document_types=["bank_statement"], source_url=_NZ_STUDENT,
+             financial_requirement={"amount": None, "currency": "NZD",
+                                    "notes": "Widely cited as NZD 20,000 per year of study (or NZD 1,667 per month for courses under 36 weeks). Confirm the current figure on immigration.govt.nz before relying on it."}),
+        dict(key="onward-travel", title="Onward travel ticket or funds for it", level="mandatory",
+             description="A ticket out of New Zealand, or evidence of enough additional money to buy one.",
+             document_types=["bank_statement", "other"], source_url=_NZ_STUDENT),
+        dict(key="genuine-student", title="Genuine intention to study", level="mandatory",
+             description="Show that you genuinely intend to study: how the course fits your previous study and work, your career plans, and that you meet the provider's entry requirements. Officers assess bona fides from your whole application.",
+             document_types=["sop"], source_url=_NZ_STUDENT),
+        dict(key="chest-xray-medical", title="Chest X-ray / medical certificate (if required)", level="conditional",
+             description="Depending on your country of residence and length of stay, INZ may require a chest X-ray certificate or full medical certificate from an INZ-approved panel physician. Residents of countries not on INZ's low-TB-incidence list who study for more than 6 months usually need a chest X-ray.",
+             document_types=["medical_report"], source_url=_NZ_STUDENT, applies_when=_HIGH_TB_RESIDENCE,
+             eligibility_conditions="Depends on residence country and intended length of stay — confirm with INZ's medical requirements."),
+        dict(key="police-certificate", title="Police certificate (if staying more than 24 months)", level="conditional",
+             description="Applicants aged 17 or over whose total stay in New Zealand will exceed 24 months need police certificates. Certificates must be less than 6 months old when you apply.",
+             document_types=["police_certificate"], source_url=_NZ_STUDENT,
+             applies_when={"fact": "applicant.age", "op": "gte", "value": 17}),
+        dict(key="translations", title="English translations of documents not in English", level="conditional",
+             description="Documents not in English must be accompanied by a full English translation from an independent, qualified translator.",
+             document_types=[], source_url=_NZ_STUDENT, applies_when=_NON_ENGLISH_DOCS, translation=True),
+    ]),
+    ("NZ", "work", "nz-work", "Accredited Employer Work Visa (AEWV)",
+     "For a job offer from a New Zealand employer accredited by Immigration New Zealand, approved through a Job Check.", _NZ_AEWV, [
+        dict(key="valid-passport", title="Valid passport", level="mandatory",
+             description="A passport valid for at least 3 months beyond your intended stay.", document_types=["passport"], source_url=_NZ_WORK_GUIDE),
+        dict(key="job-token", title="Job offer from an accredited employer with an approved Job Check (job token)", level="mandatory",
+             description="A job token from an approved Job Check that has not been used for another visa, issued by an accredited employer.",
+             document_types=["employment_contract"], source_url=_NZ_AEWV),
+        dict(key="employment-agreement", title="Signed employment agreement", level="mandatory",
+             description="The employment agreement signed by you and the employer, matching the job approved in the Job Check (role, pay, hours, location).",
+             document_types=["employment_contract"], source_url=_NZ_AEWV),
+        dict(key="suitably-qualified", title="Evidence you are suitably qualified by training and experience", level="mandatory",
+             description="Third-party evidence of the qualifications and/or work experience the job requires — for example employer reference letters, certificates of employment, payslips or tax certificates.",
+             document_types=["employment_letter", "experience_certificate", "academic_certificate", "salary_slip", "tax_record"], source_url=_NZ_AEWV),
+        dict(key="skills-threshold", title="Meets the minimum skills threshold", level="mandatory",
+             description="The job must meet INZ's skill-level rules (for example a Green List role, pay at or above the required multiple of the median wage, or a recognised occupation with the required experience or qualification).",
+             document_types=["employment_contract"], source_url=_NZ_AEWV,
+             financial_requirement={"amount": None, "currency": "NZD", "notes": "Pay thresholds are linked to the median wage, which INZ updates; check the current figure."}),
+        dict(key="occupational-registration", title="Occupational registration (if the job requires it)", level="conditional",
+             description="If the occupation needs registration in New Zealand (for example health or teaching roles), provide evidence of registration or eligibility.",
+             document_types=["professional_registration"], source_url=_NZ_AEWV,
+             applies_when={"fact": "employment.regulated_occupation", "op": "truthy"}),
+        dict(key="health-character", title="Health and character (medical / police certificates)", level="conditional",
+             description="Meet INZ health and character requirements. Medical certificates and police certificates are required depending on your country of residence and intended length of stay.",
+             document_types=["medical_report", "police_certificate"], source_url=_NZ_WORK_GUIDE),
+        dict(key="translations", title="English translations of documents not in English", level="conditional",
+             description="Documents not in English must include a full English translation from an independent, qualified translator.",
+             document_types=[], source_url=_NZ_WORK_GUIDE, applies_when=_NON_ENGLISH_DOCS, translation=True),
+    ]),
+    ("NZ", "family", "nz-family", "Partner / dependant of a student or work visa holder",
+     "For partners and dependent children of people who hold (or are applying for) a New Zealand student or work visa.", _NZ_PARTNER, [
+        dict(key="valid-passport", title="Valid passport for each family member", level="mandatory",
+             description="Each person needs a passport valid for at least 3 months beyond the intended stay.", document_types=["passport"], source_url=_NZ_PARTNER),
+        dict(key="supporting-visa", title="Evidence of the supporting partner's visa", level="mandatory",
+             description="Officers must see evidence that the supporting partner holds (or is eligible for) a student or work visa that allows family to be supported.",
+             document_types=["travel_document"], source_url=_NZ_PARTNER),
+        dict(key="genuine-stable-partnership", title="Living together in a genuine and stable partnership", level="conditional",
+             description="Evidence that you live together in a genuine and stable relationship — for example joint tenancy or property records, shared bills, joint finances, photos and communication, and statements from people who know you. Marriage alone is usually not enough; explain any periods apart.",
+             document_types=["relationship_evidence", "marriage_certificate"], source_url=_NZ_PARTNER,
+             applies_when={"fact": "family.relation_to_principal", "op": "in", "value": ["spouse", "partner"]}),
+        dict(key="child-relationship", title="Birth certificate for dependent children", level="conditional",
+             description="Full birth certificates showing the parents' names for each dependent child.",
+             document_types=["birth_certificate"], source_url=_NZ_PARTNER,
+             applies_when={"fact": "family.relation_to_principal", "op": "eq", "value": "child"}),
+        dict(key="health-character", title="Health and character (medical / police certificates)", level="conditional",
+             description="Meet INZ health and character requirements; medical and police certificates depend on residence country and length of stay.",
+             document_types=["medical_report", "police_certificate"], source_url=_NZ_WORK_GUIDE),
+    ]),
+]
+
 # ---------------------------------------------------------------- evidence rules
 # These are NOT immigration rules. They describe which documents could substantiate a claim the
 # applicant has made, and therefore are only ever 'conditional' or 'supplementary'.
 EVIDENCE_RULES = [
+    dict(key="nz-financial-undertaking", title="Financial Undertaking for Students (INZ 1014) from your sponsor",
+         category_types=["student"],
+         applies_when={"all": [{"fact": "destination", "op": "eq", "value": "NZ"}, _SPONSOR]},
+         document_types=["sponsorship_letter", "affidavit"], claim_key="financial.sponsorship",
+         explanation="For New Zealand, a sponsor who supports a student usually completes INZ's Financial Undertaking for Students form, together with evidence that they can meet the commitment."),
+    dict(key="nz-relationship-timeline", title="Relationship history and evidence of living together", category_types=["family"],
+         applies_when={"all": [{"fact": "destination", "op": "eq", "value": "NZ"},
+                               {"fact": "family.relation_to_principal", "op": "in", "value": ["spouse", "partner"]}]},
+         document_types=["relationship_evidence"], claim_key="family.relationship", level="supplementary",
+         explanation="A clear, dated relationship history supported by shared-address, financial and communication evidence makes it easier for an officer to see a genuine and stable partnership."),
     dict(key="sponsor-relationship", title="Evidence of your relationship to your financial sponsor",
          applies_when=_SPONSOR, document_types=["birth_certificate", "relationship_evidence"], claim_key="financial.sponsorship",
          explanation="You said someone else will fund your application. Decision-makers generally need to understand who the sponsor is and why they are supporting you; a birth certificate (for a parent) or other relationship evidence links you to the sponsor."),
