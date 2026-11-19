@@ -6,3 +6,6 @@ backend/var/
 .pytest_cache/
 frontend/node_modules/
 frontend/.next/
+
+# local download bundles
+*.zip
