@@ -175,15 +175,46 @@ def test_what_if_planner_not_persisted(applicant):
     assert client.get(f"/api/applications/{app['id']}").json()["reassessments"]["assessments_run"] == 1
 
 
-def test_planned_country_discloses_limitation(applicant):
+def test_category_without_requirements_discloses_limitation(applicant):
+    """A visa type with no recorded requirements must say so, never invent any."""
+    from tests.conftest import login_staff
+
     client, _ = applicant
+    admin = login_staff("admin")
+    r = admin.post("/api/admin/knowledge/categories", json={"country_code": "DE", "category_type": "student", "code": "de-test-empty",
+                                                            "name": "Empty test category", "official_url": "https://www.make-it-in-germany.com"})
+    assert r.status_code == 201, r.text
+    cat = next(c for c in client.get("/api/countries/DE/visa-categories").json() if c["code"] == "de-test-empty")
     client.put("/api/profile", json=PROFILE)
-    a = paid_app(client, country="DE", details=DETAILS)
+    a = client.post("/api/applications", json={"country_code": "DE", "visa_category_id": cat["id"], "details": DETAILS}).json()
+    from tests.conftest import pay_for
+    pay_for(client, "assessment", a["id"])
     v = _assess(client, a["id"])
     assert v["score_breakdown"]["components"]["requirements"]["ratio"] is None
     assert any("have not been loaded yet" in l for l in v["summary"]["limitations"])
     assert not any(i["origin"] == "requirement" for i in v["checklist"])
     assert all("mandatory" not in i["classifications"] for i in v["checklist"])
+
+
+@pytest.mark.parametrize("country", ["GB", "CA", "AU", "NZ", "IE", "FR", "IT", "MT", "DE", "NL", "SE", "FI", "LT", "HU", "GE"])
+def test_every_destination_has_sourced_requirements(applicant, country):
+    client, _ = applicant
+    cats = [c for c in client.get(f"/api/countries/{country}/visa-categories").json() if "test" not in c["code"]]
+    assert {c["category_type"] for c in cats} == {"student", "work", "family"}
+    for c in cats:
+        reqs = client.get(f"/api/visa-categories/{c['id']}/requirements").json()["requirements"]
+        assert len(reqs) >= 3, (country, c["name"])
+        assert all(r["source_url"].startswith("https://") and r["review_status"] == "pending_review" for r in reqs)
+        assert any(r["key"] == "valid-passport" for r in reqs)
+    client.put("/api/profile", json=PROFILE)
+    student = next(c for c in cats if c["category_type"] == "student")
+    a = client.post("/api/applications", json={"country_code": country, "visa_category_id": student["id"], "details": DETAILS}).json()
+    from tests.conftest import pay_for
+    pay_for(client, "assessment", a["id"])
+    upload(client, a["id"], pdf_bytes(PASSPORT), "passport.pdf", "passport")
+    v = _assess(client, a["id"])
+    assert not any("have not been loaded yet" in l for l in v["summary"]["limitations"])
+    assert {i["item_key"] for i in v["checklist"] if i["status"] == "satisfied"} >= {"req:valid-passport"}
 
 
 def test_condition_evaluator():

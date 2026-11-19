@@ -71,15 +71,20 @@ def seed_countries(db: Session) -> None:
 
 def seed_knowledge(db: Session) -> None:
     sources: dict[str, OfficialSource] = {}
-    for country, title, url, publisher in K.SOURCES:
+    def ensure_source(country: str, title: str, url: str, publisher: str) -> OfficialSource:
+        if url in sources:  # the same official page can back several requirements / countries' portals
+            return sources[url]
         src = db.scalars(select(OfficialSource).where(OfficialSource.url == url)).first()
         if not src:
             src = OfficialSource(country_code=country, title=title, url=url, publisher=publisher)
             db.add(src)
         sources[url] = src
+        return src
+
+    for country, title, url, publisher in K.SOURCES:
+        ensure_source(country, title, url, publisher)
     for country, (publisher, url) in K.PORTALS.items():
-        if not db.scalars(select(OfficialSource).where(OfficialSource.url == url)).first():
-            db.add(OfficialSource(country_code=country, title=f"{publisher} – official portal", url=url, publisher=publisher))
+        ensure_source(country, f"{publisher} – official portal", url, publisher)
     db.flush()
 
     for country, ctype, code, name, desc, url, reqs in K.CATEGORIES:

@@ -2,7 +2,8 @@
 
 IMPORTANT — provenance and honesty rules for this file
 ------------------------------------------------------
-* Every requirement cites an official government URL. The pages could NOT be fetched from the
+* Every requirement cites an official government URL (or, for EU countries where a national page was not
+  identified, the European Commission's EU Immigration Portal). The pages could NOT be fetched from the
   build environment (outbound network policy blocked government hosts), so every record is seeded
   with review_status='pending_review' and last_verified_at=NULL. An administrator must open the
   source, confirm the wording, and press "Mark verified" before the item is presented as verified.
@@ -18,17 +19,17 @@ DESTINATIONS = [
     ("CA", "North America", "pilot", 2),
     ("AU", "Oceania", "pilot", 3),
     ("NZ", "Oceania", "pilot", 4),
-    ("IE", "Europe", "planned", 5),
-    ("FR", "Europe", "planned", 6),
-    ("IT", "Europe", "planned", 7),
-    ("MT", "Europe", "planned", 8),
-    ("DE", "Europe", "planned", 9),
-    ("NL", "Europe", "planned", 10),
-    ("SE", "Europe", "planned", 11),
-    ("FI", "Europe", "planned", 12),
-    ("LT", "Europe", "planned", 13),
-    ("HU", "Europe", "planned", 14),
-    ("GE", "Europe / Caucasus", "planned", 15),
+    ("IE", "Europe", "pilot", 5),
+    ("FR", "Europe", "pilot", 6),
+    ("IT", "Europe", "pilot", 7),
+    ("MT", "Europe", "pilot", 8),
+    ("DE", "Europe", "pilot", 9),
+    ("NL", "Europe", "pilot", 10),
+    ("SE", "Europe", "pilot", 11),
+    ("FI", "Europe", "pilot", 12),
+    ("LT", "Europe", "pilot", 13),
+    ("HU", "Europe", "pilot", 14),
+    ("GE", "Europe / Caucasus", "pilot", 15),
 ]
 FUTURE_DESTINATIONS = [
     "AT", "BE", "DK", "NO", "CH", "ES", "PT", "PL", "CZ", "EE", "LV", "LU", "HR", "CY", "GR",
@@ -388,6 +389,12 @@ CATEGORIES += [
              document_types=["medical_report", "police_certificate"], source_url=_NZ_WORK_GUIDE),
     ]),
 ]
+
+# ---------------------------------------------------------------- remaining destinations
+from app.seed import knowledge_more as _more  # noqa: E402
+
+SOURCES += _more.SOURCES
+CATEGORIES += _more.CATEGORIES
 
 # ---------------------------------------------------------------- evidence rules
 # These are NOT immigration rules. They describe which documents could substantiate a claim the
