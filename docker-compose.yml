@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgres:16
+    environment: { POSTGRES_USER: visaready, POSTGRES_PASSWORD: visaready_dev, POSTGRES_DB: visaready }
+    volumes: [pgdata:/var/lib/postgresql/data]
+  api:
+    build: ./backend
+    env_file: .env
+    environment: { DATABASE_URL: "postgresql+psycopg://visaready:visaready_dev@db:5432/visaready" }
+    volumes: [storage:/app/var/storage]
+    depends_on: [db]
+    ports: ["8000:8000"]
+  worker:
+    build: ./backend
+    env_file: .env
+    environment: { DATABASE_URL: "postgresql+psycopg://visaready:visaready_dev@db:5432/visaready" }
+    command: ["python", "-m", "app.services.jobs.worker"]
+    volumes: [storage:/app/var/storage]
+    depends_on: [api]
+  web:
+    build: ./frontend
+    depends_on: [api]
+    ports: ["3000:3000"]
+volumes: { pgdata: {}, storage: {} }
