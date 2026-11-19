@@ -1,0 +1,8 @@
+**/node_modules
+**/.next
+backend/.venv
+backend/var
+**/__pycache__
+**/.env
+*.zip
+.git

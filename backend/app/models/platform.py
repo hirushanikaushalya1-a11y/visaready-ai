@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -74,6 +74,16 @@ class Job(IdMixin, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (Index("ix_jobs_queue", "status", "run_at"),)
+
+
+class StorageBlob(Base):
+    """Encrypted file bytes, used when STORAGE_BACKEND=database (hosts without a persistent disk).
+    Contents are already AES-GCM ciphertext before they reach this table."""
+
+    __tablename__ = "storage_blobs"
+    key: Mapped[str] = mapped_column(String(300), primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class SystemSetting(TimestampMixin, Base):

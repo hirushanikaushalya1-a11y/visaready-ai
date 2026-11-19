@@ -4,14 +4,15 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=(".env", "../.env"), extra="ignore")
 
-    environment: Literal["development", "test", "production"] = "development"
+    # staging = public test site: secure cookies/no API docs, but test-mode payments allowed.
+    environment: Literal["development", "test", "staging", "production"] = "development"
     app_name: str = "VisaReady AI"
     public_base_url: str = "http://localhost:3000"
 
@@ -31,7 +32,7 @@ class Settings(BaseSettings):
     upload_rate_limit_per_minute: int = 30
 
     # --- storage --------------------------------------------------------
-    storage_backend: Literal["local_encrypted", "s3"] = "local_encrypted"
+    storage_backend: Literal["local_encrypted", "database", "s3"] = "local_encrypted"
     storage_local_path: str = "./var/storage"
 
     # --- package limits (shown to the applicant before payment) --------
@@ -73,6 +74,15 @@ class Settings(BaseSettings):
     writing_sla_hours: int = 24
     writing_sla_warning_hours: int = 4
 
+    @field_validator("database_url")
+    @classmethod
+    def _normalise_db_url(cls, v: str) -> str:
+        # Hosting providers hand out postgres:// or postgresql:// URLs; we use the psycopg 3 driver.
+        for prefix in ("postgres://", "postgresql://"):
+            if v.startswith(prefix):
+                return "postgresql+psycopg://" + v[len(prefix):]
+        return v
+
     def validate_for_production(self) -> list[str]:
         problems: list[str] = []
         if self.environment != "production":
@@ -91,6 +101,9 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     s = Settings()
+    if s.environment in ("production", "staging"):
+        if "dev-insecure" in s.secret_key or s.storage_master_key.startswith("ZGV2"):
+            raise RuntimeError("SECRET_KEY and STORAGE_MASTER_KEY must be set for a public deployment")
     if s.environment == "production":
         s.require_staff_mfa = True
         problems = s.validate_for_production()

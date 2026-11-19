@@ -29,6 +29,17 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
+    run_loop()
+
+
+def start_embedded() -> None:
+    """Run the worker loop in a daemon thread inside the API process (single-service hosting)."""
+    import threading
+
+    threading.Thread(target=run_loop, name="visaready-worker", daemon=True).start()
+
+
+def run_loop() -> None:
     wid = worker_id()
     last_run = {k: 0.0 for k in PERIODIC}
     log.info("worker %s started", wid)
@@ -46,11 +57,15 @@ def main() -> None:
             db.commit()
         finally:
             db.close()
-        job_id = claim_next(wid)
-        if job_id:
-            run_job(job_id)
-        else:
-            time.sleep(1.0)
+        try:
+            job_id = claim_next(wid)
+            if job_id:
+                run_job(job_id)
+            else:
+                time.sleep(1.0)
+        except Exception:  # noqa: BLE001 - keep the loop alive (e.g. DB briefly unavailable)
+            log.exception("worker loop error")
+            time.sleep(5.0)
     log.info("worker stopped")
 
 

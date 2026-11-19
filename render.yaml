@@ -1,0 +1,35 @@
+# One-click deployment on Render (https://render.com). See docs/DEPLOY_RENDER.md.
+databases:
+  - name: visaready-db
+    plan: free
+    databaseName: visaready
+    user: visaready
+
+services:
+  - type: web
+    name: visaready
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: visaready-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: staging            # public test site: test-mode payments only, no real money
+      - key: SECRET_KEY
+        generateValue: true
+      - key: STORAGE_MASTER_KEY
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: PAYMENT_PROVIDER
+        value: sandbox
+      - key: EMAIL_BACKEND
+        value: outbox
+      - key: SEED_ADMIN_EMAIL     # you will be asked to type these when deploying
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false

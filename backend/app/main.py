@@ -14,9 +14,19 @@ settings = get_settings()
 app = FastAPI(
     title="VisaReady AI API",
     version="1.0.0",
-    docs_url="/api/docs" if settings.environment != "production" else None,
-    openapi_url="/api/openapi.json" if settings.environment != "production" else None,
+    docs_url="/api/docs" if settings.environment in ("development", "test") else None,
+    openapi_url="/api/openapi.json" if settings.environment in ("development", "test") else None,
 )
+
+
+@app.on_event("startup")
+def _embedded_worker() -> None:
+    import os
+
+    if os.environ.get("RUN_EMBEDDED_WORKER") == "1":
+        from app.services.jobs.worker import start_embedded
+
+        start_embedded()
 
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
 CSRF_EXEMPT = ("/api/payments/webhook/",)  # server-to-server, authenticated by signature instead

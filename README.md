@@ -8,6 +8,12 @@ AI-assisted visa application assessment, evidence intelligence and preparation p
 - `frontend/` — Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
 - `docs/` — [Architecture](docs/ARCHITECTURE.md) · [Database](docs/DATABASE.md) · [API](docs/API.md) · [Security](docs/SECURITY.md) · [Payments research](docs/PAYMENTS.md) · [Implementation checklist](docs/IMPLEMENTATION_CHECKLIST.md) · [Assumptions](docs/ASSUMPTIONS.md)
 
+## Put it online (no technical skills needed)
+
+Follow **[docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md)** — one link, a few clicks.
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/hirushanikaushalya1-a11y/visaready-ai)
+
 ## Run locally
 
 Prerequisites: Python 3.12+, Node 22, PostgreSQL 16, `tesseract-ocr`, `poppler-utils`.

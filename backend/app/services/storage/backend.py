@@ -49,6 +49,39 @@ class LocalEncryptedStorage:
             p.unlink()
 
 
+class DatabaseStorage:
+    """Stores ciphertext in Postgres (table storage_blobs). Suitable for small deployments on hosts
+    whose disk is wiped on restart. Uses its own short transactions."""
+
+    def put(self, key: str, data: bytes) -> None:
+        from app.core.database import SessionLocal, utcnow
+        from app.models.platform import StorageBlob
+
+        with SessionLocal() as db:
+            db.merge(StorageBlob(key=key, data=data, created_at=utcnow()))
+            db.commit()
+
+    def get(self, key: str) -> bytes:
+        from app.core.database import SessionLocal
+        from app.models.platform import StorageBlob
+
+        with SessionLocal() as db:
+            row = db.get(StorageBlob, key)
+            if not row:
+                raise FileNotFoundError(key)
+            return row.data
+
+    def delete(self, key: str) -> None:
+        from app.core.database import SessionLocal
+        from app.models.platform import StorageBlob
+
+        with SessionLocal() as db:
+            row = db.get(StorageBlob, key)
+            if row:
+                db.delete(row)
+                db.commit()
+
+
 class S3Storage:  # pragma: no cover - requires credentials
     """S3-compatible adapter. AWAITING INTEGRATION: requires boto3 and S3_BUCKET / AWS credentials.
     Bucket must block all public access and use SSE-KMS in addition to our client-side encryption."""
@@ -64,7 +97,12 @@ def storage() -> StorageBackend:
     global _backend
     if _backend is None:
         s = get_settings()
-        _backend = S3Storage() if s.storage_backend == "s3" else LocalEncryptedStorage(s.storage_local_path)
+        if s.storage_backend == "s3":
+            _backend = S3Storage()
+        elif s.storage_backend == "database":
+            _backend = DatabaseStorage()
+        else:
+            _backend = LocalEncryptedStorage(s.storage_local_path)
     return _backend
 
 
