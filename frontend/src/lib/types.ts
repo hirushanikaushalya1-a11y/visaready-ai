@@ -18,6 +18,7 @@ export type VisaCategory = {
 export type Service = {
   code: string; kind: string; name: string; description: string; price_cents: number | null; currency: string;
   sla_hours: number | null; required_information: string[]; inclusions: string[]; exclusions: string[]; disclaimer: string | null;
+  restricted_countries: string[];
 };
 
 export type Application = {
@@ -29,6 +30,7 @@ export type Application = {
   latest_assessment: { id: string; version: number; status: string; score: number | null; created_at: string } | null;
   document_count: number; limits: { max_documents: number; max_file_size_mb: number };
   retention_delete_after: string | null;
+  report_unlocked: boolean;
   family_members?: { id: string; relation: string; full_name: string; date_of_birth: string | null; included_in_application: boolean }[];
   checklist_state?: Record<string, { collected: boolean; note: string | null }>;
   payment?: { id: string; status: string } | null;
@@ -75,7 +77,7 @@ export type Diff = {
   note: string;
 };
 export type WritingOrder = {
-  id: string; reference: string; service_code: string; service_name: string; price: string; currency: string; status: string;
+  id: string; reference: string; service_code: string; service_name: string; price: string; currency: string; quantity: number; status: string;
   customer_notes: string | null; missing_information_note: string | null; submission_email: string; required_information: string[];
   disclaimer: string | null; paid_at: string | null; info_complete_at: string | null; deadline_at: string | null;
   seconds_remaining: number | null; delivered_at: string | null; refund_eligible: boolean; created_at: string;

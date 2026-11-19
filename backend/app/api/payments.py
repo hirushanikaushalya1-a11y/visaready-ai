@@ -42,13 +42,9 @@ def payment_config():
 
 @router.post("/checkout")
 def checkout(body: CheckoutIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if body.purpose in ("assessment", "reassessment"):
+    if body.purpose == "assessment_report":
         app = owned_application(db, user, body.reference_id, for_update=True)
-        if body.purpose == "assessment" and app.status != "draft":
-            raise HTTPException(409, "This application is already unlocked.")
-        if body.purpose == "reassessment" and app.status == "draft":
-            raise HTTPException(409, "Unlock the assessment first.")
-        service, item = body.purpose, f"Visa application assessment – {app.title}"
+        service, item = "assessment_report", f"Full assessment report – {app.title}"
     elif body.purpose == "writing_order":
         order = db.scalars(select(WritingOrder).where(WritingOrder.id == body.reference_id, WritingOrder.user_id == user.id)).first()
         if not order:
@@ -60,8 +56,8 @@ def checkout(body: CheckoutIn, user: User = Depends(get_current_user), db: Sessi
         raise HTTPException(422, "Unsupported payment purpose")
     amount = None
     if body.purpose == "writing_order":
-        amount = order.price_cents  # price locked at order creation
-    p = start_payment(db, user, body.purpose, body.reference_id, service, amount)
+        amount = order.price_cents  # price (incl. quantity) locked at order creation
+    p = start_payment(db, user, body.purpose, body.reference_id, service, amount, order.currency if body.purpose == "writing_order" else None)
     profile = db.scalars(select(ApplicantProfile).where(ApplicantProfile.user_id == user.id)).first()
     sess = get_provider(p.provider).create_checkout(p, {"name": user.full_name, "email": user.email, "item": item,
                                                          "phone": profile.phone if profile else None})
@@ -124,11 +120,11 @@ def invoice(payment_id: uuid.UUID, user: User = Depends(get_current_user), db: S
     svc = db.get(ServiceCatalogItem, p.service_code)
     refunds = db.scalars(select(Refund).where(Refund.payment_id == p.id, Refund.status == "succeeded")).all()
     e = html.escape
-    rrows = "".join(f"<tr><td>Refund {r.processed_at:%d %b %Y}</td><td>-${fmt_amount(r.amount_cents)}</td></tr>" for r in refunds)
+    rrows = "".join(f"<tr><td>Refund {r.processed_at:%d %b %Y}</td><td>-{fmt_amount(r.amount_cents)}</td></tr>" for r in refunds)
     return HTMLResponse(f"""<!doctype html><html><head><meta charset="utf-8"><title>Invoice {e(p.invoice_number)}</title>
 <style>body{{font-family:system-ui,sans-serif;max-width:640px;margin:40px auto;color:#0f172a;padding:0 16px}}td{{padding:6px 0}}table{{width:100%}}</style></head>
 <body><h1>Invoice {e(p.invoice_number)}</h1><p>VisaReady AI<br>Date: {p.paid_at:%d %b %Y}<br>Billed to: {e(user.full_name)} ({e(user.email)})</p>
-<table><tr><td>{e(svc.name if svc else p.service_code)}</td><td>${fmt_amount(p.amount_cents)} {e(p.currency)}</td></tr>{rrows}</table>
+<table><tr><td>{e(svc.name if svc else p.service_code)}</td><td>{fmt_amount(p.amount_cents)} {e(p.currency)}</td></tr>{rrows}</table>
 <p>Payment reference: {e(p.provider_order_id)} · Provider: {e(p.provider)}{' (TEST MODE – no real payment)' if p.provider == 'sandbox' else ''}</p>
 <p style="font-size:12px;color:#475569">Business registration and tax details to be added before launch.</p></body></html>""",
                         headers={"Cache-Control": "no-store"})

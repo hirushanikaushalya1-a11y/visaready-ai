@@ -10,8 +10,8 @@ const steps = [
   ["Create your application", "Choose your nationality, destination and visa category. We build your requirement set from our country knowledge base."],
   ["Tell us your story", "Answer guided questions about your studies, work, finances, family and travel history."],
   ["Upload your evidence", "Securely upload passports, certificates, bank statements and letters. Everything is encrypted."],
-  ["Get your readiness report", "See what's missing, what conflicts, what a decision-maker might ask — and exactly how to fix it."],
-  ["Improve and reassess", "Upload better evidence and reassess. Every score change is explained."],
+  ["Get your free readiness assessment", "See how strong your file is: what's missing, what conflicts, what a decision-maker might ask — and how to fix it."],
+  ["Improve, or let us help", "Reassess for free as you improve. Get the full report with drafts, or have us write your SOP and letters."],
 ];
 
 const evidence = [
@@ -44,7 +44,7 @@ export default function Home() {
               <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-tight md:text-5xl">Prepare Your Visa Application With Confidence.</h1>
               <p className="mt-5 max-w-xl text-lg text-white/75">An intelligent visa preparation platform that helps you understand your requirements, organise your evidence and identify potential application weaknesses before submission.</p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Link href="/register" className="inline-flex h-12 items-center gap-2 rounded-lg bg-white px-6 text-sm font-semibold text-navy hover:bg-white/90">Start your assessment <ArrowRight className="h-4 w-4" aria-hidden /></Link>
+                <Link href="/register" className="inline-flex h-12 items-center gap-2 rounded-lg bg-white px-6 text-sm font-semibold text-navy hover:bg-white/90">Check my file for free <ArrowRight className="h-4 w-4" aria-hidden /></Link>
                 <Link href="/#how" className="inline-flex h-12 items-center rounded-lg border border-white/25 px-6 text-sm font-medium text-white hover:bg-white/10">See how it works</Link>
               </div>
               <p className="mt-6 text-xs text-white/55">Independent service · Not affiliated with any government · No approval guarantees</p>
@@ -151,8 +151,8 @@ export default function Home() {
         {/* 8/9. Pricing + writing */}
         <section id="pricing" className="scroll-mt-20 border-y border-line bg-surface">
           <div className="mx-auto max-w-6xl px-4 py-20">
-            <h2 className="text-3xl font-semibold tracking-tight text-ink">Transparent pricing</h2>
-            <p className="mt-3 text-ink-2">No subscriptions. Every limit is shown before you pay.</p>
+            <h2 className="text-3xl font-semibold tracking-tight text-ink">Free assessment. Pay only for what you need.</h2>
+            <p className="mt-3 text-ink-2">No subscriptions. Every price and limit is shown before you pay.</p>
             <div className="mt-10"><Pricing /></div>
           </div>
         </section>
@@ -202,7 +202,7 @@ export default function Home() {
         <section className="mx-auto max-w-6xl px-4 pb-20">
           <div className="rounded-2xl bg-surface p-10 text-center ring-1 ring-line">
             <h2 className="text-2xl font-semibold text-ink">Know what your application needs — before you submit it.</h2>
-            <p className="mx-auto mt-3 max-w-xl text-ink-3">Create a free account, explore the requirements for your destination, and unlock the full assessment when you are ready.</p>
+            <p className="mx-auto mt-3 max-w-xl text-ink-3">Create a free account and find out how strong your visa file is — free. Get the full report or professional writing only if you need it.</p>
             <Link href="/register" className="mt-6 inline-flex h-12 items-center gap-2 rounded-lg bg-navy px-6 text-sm font-semibold text-white hover:bg-navy-2">Create your free account <ArrowRight className="h-4 w-4" aria-hidden /></Link>
             <p className="mt-4 text-xs text-ink-3">VisaReady AI is independent and is not affiliated with any government or immigration authority.</p>
           </div>

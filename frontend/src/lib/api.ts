@@ -68,7 +68,13 @@ export async function upload<T = unknown>(path: string, form: FormData): Promise
 
 export function money(cents: number | null | undefined, currency = "USD") {
   if (cents == null) return "Quotation";
+  if (cents === 0) return "Free";
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100);
+}
+
+/** Formats an API amount string such as "35.00" with its currency symbol (€35.00, $20.00, £20.00). */
+export function amount(value: string | number, currency = "USD") {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(value));
 }
 
 export function fmtDate(iso?: string | null, withTime = false) {

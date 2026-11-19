@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, ArrowRight, Check, CheckCircle2, CircleDashed, Download, ExternalLink, FileText, HelpCircle, Link2,
+  AlertTriangle, ArrowRight, Check, CheckCircle2, CircleDashed, Copy, Download, ExternalLink, FileText, HelpCircle, Link2, Lock, PenLine,
   RefreshCw, Scale, ShieldAlert, Trash2, Upload, X,
 } from "lucide-react";
 import { api, del, fmtDate, label, post, put, upload } from "@/lib/api";
@@ -30,13 +30,13 @@ const CERTAINTY: Record<string, { label: string; tone: "bad" | "warn" | "info" |
 };
 
 // ------------------------------------------------------------------ Overview
-export function Overview({ app, a, onRun, running }: { app: Application; a: Assessment | null; onRun: () => void; running: boolean }) {
+export function Overview({ app, a, onRun, running, onBuyReport }: { app: Application; a: Assessment | null; onRun: () => void; running: boolean; onBuyReport: () => void }) {
   const remaining = app.reassessments.remaining;
   if (!a) {
     return (
       <Card className="text-center">
         <p className="font-semibold text-ink">Ready for your first assessment?</p>
-        <p className="mx-auto mt-1 max-w-lg text-sm text-ink-3">Complete your profile and upload your documents first — the assessment can only check what it can see. You have {remaining} assessment(s) available.</p>
+        <p className="mx-auto mt-1 max-w-lg text-sm text-ink-3">Your assessment is free. Complete your profile and upload your documents first — the assessment can only check what it can see. You have {remaining} free assessment run(s) for this application.</p>
         <Button className="mt-4" onClick={onRun} loading={running} disabled={!remaining}>Run assessment</Button>
       </Card>
     );
@@ -52,7 +52,9 @@ export function Overview({ app, a, onRun, running }: { app: Application; a: Asse
         <p className="text-xs text-ink-3">{a.score_breakdown.note}</p>
         <div className="flex flex-wrap justify-center gap-2">
           <Button onClick={onRun} loading={running} disabled={!remaining} size="sm"><RefreshCw className="h-4 w-4" aria-hidden /> Reassess ({remaining} left)</Button>
-          <a href={`/api/assessments/${a.id}/report`} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line px-3 text-sm text-ink hover:bg-surface-2"><Download className="h-4 w-4" aria-hidden /> Report</a>
+          {app.report_unlocked
+            ? <a href={`/api/assessments/${a.id}/report`} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line px-3 text-sm text-ink hover:bg-surface-2"><Download className="h-4 w-4" aria-hidden /> Full report</a>
+            : <Button size="sm" variant="secondary" onClick={onBuyReport}><Lock className="h-4 w-4" aria-hidden /> Full report</Button>}
         </div>
       </Card>
       <Card className="lg:col-span-2">
@@ -558,7 +560,7 @@ type CaseFileData = {
   explanations_to_prepare: { question: string; evidence: string[] }[]; translations_needed: string[]; notes: string[];
 };
 
-export function CaseFile({ a, onUploadFor }: { a: Assessment | null; onUploadFor: (key: string, type?: string) => void }) {
+export function CaseFile({ a, unlocked, onBuyReport, onUploadFor }: { a: Assessment | null; unlocked: boolean; onBuyReport: () => void; onUploadFor: (key: string, type?: string) => void }) {
   const [f, setF] = useState<CaseFileData | null>(null);
   useEffect(() => { if (a) api<CaseFileData>(`/assessments/${a.id}/case-file`).then(setF).catch(() => {}); }, [a]);
   if (!a) return <Empty title="Run an assessment first">Your submission file is assembled from your latest assessment.</Empty>;
@@ -574,8 +576,10 @@ export function CaseFile({ a, onUploadFor }: { a: Assessment | null; onUploadFor
           <div className="mt-2 max-w-md"><Progress value={pct} tone={ready ? "ok" : pct > 60 ? "warn" : "bad"} /></div>
         </div>
         <Badge tone={ready ? "ok" : "warn"} className="text-sm">{f.status_label}</Badge>
-        <a href={`/api/assessments/${a.id}/case-file/print`} target="_blank" rel="noreferrer"
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-medium text-white hover:bg-navy-2"><Download className="h-4 w-4" aria-hidden /> Print / save as PDF</a>
+        {unlocked
+          ? <a href={`/api/assessments/${a.id}/case-file/print`} target="_blank" rel="noreferrer"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-navy px-4 text-sm font-medium text-white hover:bg-navy-2"><Download className="h-4 w-4" aria-hidden /> Print / save as PDF</a>
+          : <Button onClick={onBuyReport}><Lock className="h-4 w-4" aria-hidden /> Unlock printable file</Button>}
       </Card>
 
       {(f.before_lodging.length > 0 || f.translations_needed.length > 0) && (
@@ -622,6 +626,48 @@ export function CaseFile({ a, onUploadFor }: { a: Assessment | null; onUploadFor
           <ul className="list-disc space-y-1 pl-5 text-sm text-ink-2">{f.explanations_to_prepare.map((x) => <li key={x.question}>{x.question}</li>)}</ul></Card>
       )}
       <ul className="space-y-1 text-xs text-ink-3">{f.notes.map((n) => <li key={n}>• {n}</li>)}</ul>
+    </div>
+  );
+}
+
+
+// ------------------------------------------------------------------ Suggested drafts (part of the paid report)
+type Draft = { key: string; title: string; service_code: string; text?: string };
+
+export function Drafts({ a, onBuyReport, reportPrice }: { a: Assessment | null; onBuyReport: () => void; reportPrice: string }) {
+  const [d, setD] = useState<{ unlocked: boolean; drafts: Draft[] } | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  useEffect(() => { if (a) api<{ unlocked: boolean; drafts: Draft[] }>(`/assessments/${a.id}/drafts`).then(setD).catch(() => {}); }, [a]);
+  if (!a) return <Empty title="Run an assessment first">Drafts are tailored to the findings of your assessment.</Empty>;
+  if (!d) return <Spinner label="Preparing your drafts…" />;
+  return (
+    <div className="space-y-4">
+      <Alert tone="info" title="Suggested drafts tailored to your file">
+        Each draft uses only the information you gave us. Replace every [bracketed] prompt with accurate details and check every statement is true.
+      </Alert>
+      {!d.unlocked && (
+        <Card className="flex flex-wrap items-center gap-4 border-accent/40">
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-ink">{d.drafts.length} drafts are ready for your file</p>
+            <p className="text-sm text-ink-2">Unlock them with your full assessment report ({reportPrice}).</p>
+          </div>
+          <Button onClick={onBuyReport}><Lock className="h-4 w-4" aria-hidden /> Unlock drafts</Button>
+        </Card>
+      )}
+      {d.drafts.map((x) => (
+        <Card key={x.key}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-semibold text-ink">{x.title}</h3>
+            <div className="flex gap-2">
+              {x.text && <Button size="sm" variant="secondary" onClick={() => { navigator.clipboard?.writeText(x.text!); setCopied(x.key); }}><Copy className="h-4 w-4" aria-hidden /> {copied === x.key ? "Copied" : "Copy"}</Button>}
+              <a href="/services" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-navy px-3 text-sm text-white hover:bg-navy-2"><PenLine className="h-4 w-4" aria-hidden /> Have us write it</a>
+            </div>
+          </div>
+          {x.text
+            ? <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-4 font-sans text-sm leading-relaxed text-ink-2">{x.text}</pre>
+            : <div className="mt-3 rounded-lg bg-surface-2 p-4 text-sm text-ink-3 blur-[1px] select-none" aria-hidden>To the Visa Officer, Re: … [locked — unlock the full report to view this draft]</div>}
+        </Card>
+      ))}
     </div>
   );
 }

@@ -132,20 +132,32 @@ def seed_knowledge(db: Session) -> None:
 
 
 def seed_services(db: Session) -> None:
+    from app.models.platform import SystemSetting
+
+    ver_row = db.get(SystemSetting, "catalog_version")
+    apply_prices = (ver_row.value.get("version", 1) if ver_row else 1) < K.CATALOG_VERSION
     for s in K.SERVICES:
         existing = db.get(ServiceCatalogItem, s["code"])
         row = existing or ServiceCatalogItem(code=s["code"])
         for k in ("kind", "name", "description", "sort_order"):
             setattr(row, k, s[k])
-        if existing is None:  # never overwrite a price an admin has changed
+        # Prices: set on creation or when the catalogue version changes; otherwise keep admin edits.
+        if existing is None or apply_prices:
             row.price_cents = s.get("price_cents")
+            row.currency = s.get("currency", "USD")
         row.sla_hours = s.get("sla_hours")
         row.required_information = s.get("required_information", [])
         row.inclusions, row.exclusions = s.get("inclusions", []), s.get("exclusions", [])
         row.disclaimer = s.get("disclaimer")
         row.is_active = s.get("is_active", True)
-        row.currency = "USD"
+        row.restricted_countries = s.get("restricted_countries", [])
         db.merge(row)
+    for code in K.RETIRED_SERVICES:
+        old = db.get(ServiceCatalogItem, code)
+        if old:
+            old.is_active = False
+    if apply_prices:
+        db.merge(SystemSetting(key="catalog_version", value={"version": K.CATALOG_VERSION}))
 
 
 def seed_user(db: Session, email: str, password: str, name: str, role: str) -> User:

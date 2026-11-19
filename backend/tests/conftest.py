@@ -109,8 +109,8 @@ def pay_for(client, purpose: str, reference_id: str, outcome: str = "succeeded")
 
 
 def paid_app(client, **kw) -> dict:
+    """Applications are free and active on creation (name kept for readability of older tests)."""
     a = create_app(client, **kw)
-    pay_for(client, "assessment", a["id"])
     return client.get(f"/api/applications/{a['id']}").json()
 
 

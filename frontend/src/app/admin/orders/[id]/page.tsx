@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { fmtDate, label, post, upload } from "@/lib/api";
+import { fmtDate, label, post, upload, amount } from "@/lib/api";
 import { useAuth, useLoad } from "@/lib/auth";
 import type { WritingOrder } from "@/lib/types";
 import { PageHeader } from "@/components/shell";
@@ -35,7 +35,7 @@ export default function AdminOrder() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={`${o.reference} · ${o.service_name}`} subtitle={`${o.customer?.name} <${o.customer?.email}> · $${o.price}`} actions={<Badge tone={statusTone[o.status]}>{label(o.status)}</Badge>} />
+      <PageHeader title={`${o.reference} · ${o.service_name}`} subtitle={`${o.customer?.name} <${o.customer?.email}> · ${amount(o.price, o.currency)}`} actions={<Badge tone={statusTone[o.status]}>{label(o.status)}</Badge>} />
       {error && <Alert tone="bad">{error}</Alert>}
       {o.deadline_at && <Card className="flex justify-between"><span>Deadline {fmtDate(o.deadline_at, true)}</span>{o.seconds_remaining != null && <Countdown deadline={o.deadline_at} />}</Card>}
       {o.customer_notes && <Card><SectionTitle title="Customer notes" /><p className="whitespace-pre-line text-sm text-ink-2">{o.customer_notes}</p></Card>}
@@ -59,7 +59,7 @@ export default function AdminOrder() {
         </Card>
       )}
       {o.status === "refund_eligible" && can("refunds.manage") && (
-        <Card className="flex items-center justify-between gap-4 border-bad/30"><p className="text-sm text-ink-2">This order missed the 24-hour guarantee. Refund ${o.price} to the original payment method.</p>
+        <Card className="flex items-center justify-between gap-4 border-bad/30"><p className="text-sm text-ink-2">This order missed the 24-hour guarantee. Refund {amount(o.price, o.currency)} to the original payment method.</p>
           <Button variant="danger" onClick={async () => { try { setData(await post(`/admin/writing-orders/${id}/refund`)); } catch (e) { setError(e instanceof Error ? e.message : "Failed"); } }}>Process refund</Button></Card>
       )}
       <Card><SectionTitle title="Timeline" />

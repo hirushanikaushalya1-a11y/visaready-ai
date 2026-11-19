@@ -1,7 +1,9 @@
 #!/bin/sh
 set -e
-export PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-$RENDER_EXTERNAL_URL}"
-export API_PUBLIC_URL="${API_PUBLIC_URL:-$RENDER_EXTERNAL_URL}"
+# Use the host's public address when one is provided; never export an empty value (it would
+# override the application's defaults).
+if [ -z "$PUBLIC_BASE_URL" ] && [ -n "$RENDER_EXTERNAL_URL" ]; then export PUBLIC_BASE_URL="$RENDER_EXTERNAL_URL"; fi
+if [ -z "$API_PUBLIC_URL" ] && [ -n "$RENDER_EXTERNAL_URL" ]; then export API_PUBLIC_URL="$RENDER_EXTERNAL_URL"; fi
 cd /app/backend
 echo "Preparing database..."
 alembic upgrade head

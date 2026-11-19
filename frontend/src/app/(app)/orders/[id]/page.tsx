@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { CheckCircle2, Circle, Download, Mail } from "lucide-react";
-import { fmtDate, label } from "@/lib/api";
+import { fmtDate, label, amount } from "@/lib/api";
 import { useLoad } from "@/lib/auth";
 import { startCheckout } from "@/lib/checkout";
 import type { WritingOrder } from "@/lib/types";
@@ -23,8 +23,8 @@ export default function OrderPage() {
   const idx = ORDER.indexOf(o.status === "refund_eligible" || o.status.startsWith("refund") ? (o.delivered_at ? "delivered" : "quality_review") : o.status);
   return (
     <div className="space-y-6">
-      <PageHeader title={o.service_name} subtitle={<>Order <b>{o.reference}</b> · ${o.price} {o.currency}</>} actions={<Badge tone={statusTone[o.status]}>{label(o.status)}</Badge>} />
-      {o.status === "payment_pending" && <Card className="flex items-center justify-between gap-4"><p className="text-sm text-ink-2">Payment not completed yet.</p><Button onClick={() => startCheckout("writing_order", o.id)}>Pay ${o.price}</Button></Card>}
+      <PageHeader title={o.service_name} subtitle={<>Order <b>{o.reference}</b> · {amount(o.price, o.currency)}{o.quantity > 1 ? ` (${o.quantity} letters)` : ""}</>} actions={<Badge tone={statusTone[o.status]}>{label(o.status)}</Badge>} />
+      {o.status === "payment_pending" && <Card className="flex items-center justify-between gap-4"><p className="text-sm text-ink-2">Payment not completed yet.</p><Button onClick={() => startCheckout("writing_order", o.id)}>Pay {amount(o.price, o.currency)}</Button></Card>}
       {["awaiting_documents", "information_incomplete"].includes(o.status) && (
         <Card className="border-accent/30">
           <div className="flex gap-3"><Mail className="mt-1 h-5 w-5 text-accent" aria-hidden />

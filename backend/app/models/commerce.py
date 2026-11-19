@@ -37,6 +37,8 @@ class ServiceCatalogItem(TimestampMixin, Base):
     inclusions: Mapped[list] = mapped_column(JSONB, default=list)
     exclusions: Mapped[list] = mapped_column(JSONB, default=list)
     disclaimer: Mapped[str | None] = mapped_column(Text)
+    # Destinations where this service may not be sold (e.g. regulated immigration advice).
+    restricted_countries: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=100)
 
@@ -107,6 +109,7 @@ class WritingOrder(IdMixin, TimestampMixin, Base):
     service_code: Mapped[str] = mapped_column(ForeignKey("service_catalog.code"))
     price_cents: Mapped[int] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(3))
+    quantity: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     status: Mapped[str] = mapped_column(String(30), default="payment_pending", index=True)
     customer_notes: Mapped[str | None] = mapped_column(Text)
     missing_information_note: Mapped[str | None] = mapped_column(Text)

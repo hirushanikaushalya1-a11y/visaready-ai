@@ -156,7 +156,7 @@ def test_reassessment_limit(applicant, db):
     row.reassessments_allowed = 0
     db.commit()
     _assess(client, app["id"])
-    assert client.post(f"/api/applications/{app['id']}/assessments").status_code == 402
+    assert client.post(f"/api/applications/{app['id']}/assessments").status_code == 429
 
 
 def test_what_if_planner_not_persisted(applicant):
@@ -187,8 +187,6 @@ def test_category_without_requirements_discloses_limitation(applicant):
     cat = next(c for c in client.get("/api/countries/DE/visa-categories").json() if c["code"] == "de-test-empty")
     client.put("/api/profile", json=PROFILE)
     a = client.post("/api/applications", json={"country_code": "DE", "visa_category_id": cat["id"], "details": DETAILS}).json()
-    from tests.conftest import pay_for
-    pay_for(client, "assessment", a["id"])
     v = _assess(client, a["id"])
     assert v["score_breakdown"]["components"]["requirements"]["ratio"] is None
     assert any("have not been loaded yet" in l for l in v["summary"]["limitations"])
@@ -209,8 +207,6 @@ def test_every_destination_has_sourced_requirements(applicant, country):
     client.put("/api/profile", json=PROFILE)
     student = next(c for c in cats if c["category_type"] == "student")
     a = client.post("/api/applications", json={"country_code": country, "visa_category_id": student["id"], "details": DETAILS}).json()
-    from tests.conftest import pay_for
-    pay_for(client, "assessment", a["id"])
     upload(client, a["id"], pdf_bytes(PASSPORT), "passport.pdf", "passport")
     v = _assess(client, a["id"])
     assert not any("have not been loaded yet" in l for l in v["summary"]["limitations"])
@@ -243,6 +239,9 @@ def test_case_file_builder(applicant):
     where = {e["title"]: sec["code"] for sec in f["sections"] for e in sec["entries"]}
     assert where["Evidence of your relationship to your financial sponsor"] == "C"
     assert where["Employment confirmation for each declared job"] == "E"
+    assert client.get(f"/api/assessments/{v['id']}/case-file/print").status_code == 402  # part of the paid report
+    from tests.conftest import pay_for
+    pay_for(client, "assessment_report", app["id"])
     html = client.get(f"/api/assessments/{v['id']}/case-file/print")
     assert html.status_code == 200 and "Submission file" in html.text and "A1" in html.text
     other = make_client(); register(other)

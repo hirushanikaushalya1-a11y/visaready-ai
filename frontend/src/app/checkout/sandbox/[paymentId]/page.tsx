@@ -3,7 +3,7 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { FlaskConical } from "lucide-react";
-import { api, post } from "@/lib/api";
+import { api, post, amount } from "@/lib/api";
 import { useRequireAuth } from "@/lib/auth";
 import { Alert, Button, Card, Spinner } from "@/components/ui";
 import { Logo } from "@/components/shell";
@@ -36,7 +36,7 @@ function SandboxCheckout() {
       <Alert tone="warn" title="Test mode — no real payment">This is the sandbox payment provider used for development. No card is charged. A real provider (PayHere) is enabled in production.</Alert>
       {error && <Alert tone="bad">{error}</Alert>}
       {p && (<>
-        <div className="flex items-center gap-3"><FlaskConical className="h-6 w-6 text-accent" aria-hidden /><div><p className="text-sm text-ink-3">Amount</p><p className="text-2xl font-semibold text-ink">${p.amount} {p.currency}</p></div></div>
+        <div className="flex items-center gap-3"><FlaskConical className="h-6 w-6 text-accent" aria-hidden /><div><p className="text-sm text-ink-3">Amount</p><p className="text-2xl font-semibold text-ink">{amount(p.amount, p.currency)}</p></div></div>
         <p className="text-sm text-ink-2">Purpose: {p.purpose.replace("_", " ")}</p>
         {p.status !== "pending" ? <Alert tone="info">This payment is already {p.status}.</Alert> : (
           <div className="grid gap-2">

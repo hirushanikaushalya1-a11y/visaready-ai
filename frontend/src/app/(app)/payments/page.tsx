@@ -1,6 +1,6 @@
 "use client";
 
-import { fmtDate, label } from "@/lib/api";
+import { fmtDate, label, amount } from "@/lib/api";
 import { useLoad } from "@/lib/auth";
 import { PageHeader } from "@/components/shell";
 import { Badge, Card, Empty, Spinner, statusTone } from "@/components/ui";
@@ -22,7 +22,7 @@ export default function PaymentsPage() {
                 <tr key={p.id}>
                   <td className="px-4 py-3">{fmtDate(p.created_at)}</td>
                   <td>{label(p.purpose)}{p.provider === "sandbox" && <Badge tone="warn" className="ml-2">test</Badge>}</td>
-                  <td className="tabular-nums">${p.amount} {p.currency}{p.refunded !== "0.00" && <span className="ml-1 text-xs text-info">(−${p.refunded} refunded)</span>}</td>
+                  <td className="tabular-nums">{amount(p.amount, p.currency)}{p.refunded !== "0.00" && <span className="ml-1 text-xs text-info">(−{amount(p.refunded, p.currency)} refunded)</span>}</td>
                   <td><Badge tone={statusTone[p.status]}>{label(p.status)}</Badge></td>
                   <td>{p.invoice_number ? <a className="text-accent underline" href={`/api/payments/${p.id}/invoice`} target="_blank" rel="noreferrer">{p.invoice_number}</a> : "—"}</td>
                 </tr>

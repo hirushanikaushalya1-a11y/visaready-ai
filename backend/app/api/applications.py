@@ -18,6 +18,7 @@ from app.models.knowledge import Country, VisaCategory
 from app.models.users import User
 from app.schemas.profile import DETAILS_SCHEMA
 from app.services.privacy import complete_application
+from app.services.report_access import report_unlocked
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -70,6 +71,7 @@ def app_out(db: Session, a: Application, full: bool = False) -> dict:
         "document_count": db.scalar(select(func.count()).select_from(Document).where(Document.application_id == a.id, Document.deleted_at.is_(None), Document.is_current.is_(True))),
         "limits": {"max_documents": s.max_documents_per_application, "max_file_size_mb": s.max_file_size_mb},
         "retention_delete_after": a.retention_delete_after.isoformat() if a.retention_delete_after else None,
+        "report_unlocked": report_unlocked(db, a.id),
     }
     if full:
         out["family_members"] = [{"id": str(m.id), "relation": m.relation, "full_name": m.full_name,
@@ -78,7 +80,7 @@ def app_out(db: Session, a: Application, full: bool = False) -> dict:
         out["checklist_state"] = {s.item_key: {"collected": s.collected, "note": s.note} for s in
                                   db.scalars(select(ChecklistItemState).where(ChecklistItemState.application_id == a.id)).all()}
         out["payment"] = next(({"id": str(p.id), "status": p.status} for p in db.scalars(
-            select(Payment).where(Payment.purpose == "assessment", Payment.reference_id == a.id).order_by(Payment.created_at.desc())).all()), None)
+            select(Payment).where(Payment.purpose == "assessment_report", Payment.reference_id == a.id).order_by(Payment.created_at.desc())).all()), None)
     return out
 
 
@@ -96,11 +98,15 @@ def create_application(body: ApplicationIn, request: Request, user: User = Depen
     if not country or not country.is_destination or not cat or cat.country_code != country.code or not cat.is_active:
         raise HTTPException(422, "Choose a supported destination and visa category.")
     open_count = db.scalar(select(func.count()).select_from(Application).where(
-        Application.user_id == user.id, Application.deleted_at.is_(None), Application.status == "draft"))
+        Application.user_id == user.id, Application.deleted_at.is_(None), Application.status == "active"))
     if open_count >= 10:
-        raise HTTPException(429, "You have too many unpaid draft applications. Complete or delete one first.")
+        raise HTTPException(429, "You can have up to 10 open applications. Mark one as submitted or delete one first.")
+    from app.core.database import utcnow
+
+    # The file-strength assessment is free: applications are active immediately.
     a = Application(user_id=user.id, country_code=country.code, visa_category_id=cat.id,
-                    title=body.title or f"{cat.name} – {country.name}", details=_validate_details(cat.category_type, body.details), status="draft")
+                    title=body.title or f"{cat.name} – {country.name}", details=_validate_details(cat.category_type, body.details),
+                    status="active", unlocked_at=utcnow(), reassessments_allowed=get_settings().included_reassessments)
     db.add(a)
     db.flush()
     audit(db, "application.created", actor=user, target_type="application", target_id=a.id, request=request)

@@ -9,35 +9,39 @@ from app.services.payments.providers import SandboxProvider
 from tests.conftest import create_app, login_staff, make_client, pay_for, register
 
 
-def test_assessment_payment_unlocks_and_invoices(applicant):
+def test_report_purchase_unlocks_report_and_drafts(applicant):
     client, _ = applicant
     a = create_app(client)
-    assert a["status"] == "draft"
-    res = pay_for(client, "assessment", a["id"])
-    assert res["outcome"] == "succeeded" and res["payment"]["invoice_number"].startswith("VR-")
-    app = client.get(f"/api/applications/{a['id']}").json()
-    assert app["status"] == "active" and app["reassessments"]["remaining"] == 4  # initial + 3 included
+    client.post(f"/api/applications/{a['id']}/assessments")
+    v = client.get(f"/api/applications/{a['id']}/assessments").json()[0]
+    assert client.get(f"/api/assessments/{v['id']}/report").status_code == 402
+    d = client.get(f"/api/assessments/{v['id']}/drafts").json()
+    assert d["unlocked"] is False and d["drafts"] and "text" not in d["drafts"][0]  # titles only before purchase
+    res = pay_for(client, "assessment_report", a["id"])
+    assert res["outcome"] == "succeeded" and res["payment"]["currency"] == "EUR" and res["payment"]["amount"] == "35.00"
+    assert client.get(f"/api/applications/{a['id']}").json()["report_unlocked"] is True
+    assert client.get(f"/api/assessments/{v['id']}/report").status_code == 200
+    d = client.get(f"/api/assessments/{v['id']}/drafts").json()
+    assert d["unlocked"] and "Visa Officer" in d["drafts"][0]["text"]
     inv = client.get(f"/api/payments/{res['payment']['id']}/invoice")
-    assert inv.status_code == 200 and "TEST MODE" in inv.text and "33.00" in inv.text
-    # duplicate payment is refused
-    assert client.post("/api/payments/checkout", json={"purpose": "assessment", "reference_id": a["id"]}).status_code == 409
+    assert inv.status_code == 200 and "35.00 EUR" in inv.text and "$" not in inv.text.split("<body>")[1].split("Payment reference")[0]
+    assert client.post("/api/payments/checkout", json={"purpose": "assessment_report", "reference_id": a["id"]}).status_code == 409
 
 
 def test_failed_payment_keeps_locked(applicant):
     client, _ = applicant
     a = create_app(client)
-    res = pay_for(client, "assessment", a["id"], outcome="failed")
+    res = pay_for(client, "assessment_report", a["id"], outcome="failed")
     assert res["payment"]["status"] == "failed"
-    assert client.get(f"/api/applications/{a['id']}").json()["status"] == "draft"
-    res = pay_for(client, "assessment", a["id"])  # retry works
-    assert res["outcome"] == "succeeded"
+    assert client.get(f"/api/applications/{a['id']}").json()["report_unlocked"] is False
+    assert pay_for(client, "assessment_report", a["id"])["outcome"] == "succeeded"
 
 
 def test_pending_checkout_is_reused(applicant):
     client, _ = applicant
     a = create_app(client)
-    p1 = client.post("/api/payments/checkout", json={"purpose": "assessment", "reference_id": a["id"]}).json()["payment"]["id"]
-    p2 = client.post("/api/payments/checkout", json={"purpose": "assessment", "reference_id": a["id"]}).json()["payment"]["id"]
+    p1 = client.post("/api/payments/checkout", json={"purpose": "assessment_report", "reference_id": a["id"]}).json()["payment"]["id"]
+    p2 = client.post("/api/payments/checkout", json={"purpose": "assessment_report", "reference_id": a["id"]}).json()["payment"]["id"]
     assert p1 == p2
 
 
@@ -46,7 +50,7 @@ def test_webhook_replay_tamper_and_amount_mismatch(applicant, db):
 
     client, _ = applicant
     a = create_app(client)
-    pid = client.post("/api/payments/checkout", json={"purpose": "assessment", "reference_id": a["id"]}).json()["payment"]["id"]
+    pid = client.post("/api/payments/checkout", json={"purpose": "assessment_report", "reference_id": a["id"]}).json()["payment"]["id"]
     p = db.get(Payment, uuid.UUID(pid))
     prov = SandboxProvider()
     ev = prov.signed_event(p, "succeeded", "evt-1")
@@ -59,9 +63,9 @@ def test_webhook_replay_tamper_and_amount_mismatch(applicant, db):
     db.commit()
     # amount mismatch on a different (validly signed) payment is rejected
     b = create_app(client)
-    pid2 = client.post("/api/payments/checkout", json={"purpose": "assessment", "reference_id": b["id"]}).json()["payment"]["id"]
+    pid2 = client.post("/api/payments/checkout", json={"purpose": "assessment_report", "reference_id": b["id"]}).json()["payment"]["id"]
     p2 = db.get(Payment, uuid.UUID(pid2))
-    p2.amount_cents = 3300
+    p2.amount_cents = 3500
     ev2 = prov.signed_event(p2, "succeeded", "evt-2")
     ev2_body = {k: v for k, v in ev2.items() if k != "sig"}
     ev2_body["amount"] = "1.00"
@@ -69,7 +73,7 @@ def test_webhook_replay_tamper_and_amount_mismatch(applicant, db):
     ev2_body["sig"] = prov._sig(json.dumps({k: ev2_body[k] for k in sorted(ev2_body)}))
     assert handle_webhook(db, "sandbox", prov.parse_webhook(ev2_body)) == "amount_mismatch"
     db.commit()
-    assert client.get(f"/api/applications/{b['id']}").json()["status"] == "draft"
+    assert client.get(f"/api/applications/{b['id']}").json()["report_unlocked"] is False
 
 
 def test_payhere_signatures(monkeypatch):
@@ -148,7 +152,7 @@ def test_missed_deadline_refund(applicant, db):
     r = admin.post(f"/api/admin/writing-orders/{o['id']}/refund")
     assert r.json()["status"] == "refunded"
     pay = [p for p in client.get("/api/payments").json() if p["purpose"] == "writing_order"][0]
-    assert pay["status"] == "refunded" and pay["refunded"] == "5.00"
+    assert pay["status"] == "refunded" and pay["refunded"] == "10.00"
     assert admin.post(f"/api/admin/payments/{pay['id']}/refund", json={"reason": "again"}).status_code == 400  # nothing left
 
 
@@ -174,7 +178,28 @@ def test_illegal_transition(applicant):
 
 def test_services_catalog_prices_from_db(client):
     s = {x["code"]: x for x in client.get("/api/services").json()}
-    assert s["assessment"]["price_cents"] == 3300 and s["sop"]["price_cents"] == 2000 and s["affidavit_draft"]["price_cents"] == 500
+    assert s["free_assessment"]["price_cents"] == 0
+    assert (s["assessment_report"]["price_cents"], s["assessment_report"]["currency"]) == (3500, "EUR")
+    assert (s["sop"]["price_cents"], s["sop"]["currency"]) == (2000, "USD")
+    assert (s["relationship_portfolio"]["price_cents"], s["relationship_portfolio"]["currency"]) == (2000, "GBP")
+    for code in ("cover_letter", "consent_letter", "explanation_letter", "sponsorship_letter"):
+        assert (s[code]["price_cents"], s[code]["currency"]) == (1000, "USD")
+    assert s["visa_form_filling"]["price_cents"] == 1000 and s["online_submission"]["price_cents"] == 2000
+    assert set(s["visa_form_filling"]["restricted_countries"]) == {"GB", "CA", "AU", "NZ"}
     assert "not certified" in s["affidavit_draft"]["disclaimer"]
-    assert s["translation_sworn_si_en"]["price_cents"] is None  # quotation
-    assert "human_review" not in s  # inactive until pricing/credentials confirmed
+    assert "assessment" not in s and "reassessment" not in s and "human_review" not in s
+
+
+def test_letters_priced_per_letter_and_licensing_restriction(applicant):
+    client, _ = applicant
+    o = client.post("/api/writing-orders", json={"service_code": "consent_letter", "quantity": 3}).json()
+    assert o["price"] == "30.00" and o["currency"] == "USD" and o["quantity"] == 3
+    uk = create_app(client, country="GB")
+    r = client.post("/api/writing-orders", json={"service_code": "visa_form_filling", "application_id": uk["id"]})
+    assert r.status_code == 422 and "licensed immigration adviser" in r.json()["detail"]
+    assert client.post("/api/writing-orders", json={"service_code": "online_submission"}).status_code == 422
+    de = create_app(client, country="DE")
+    r = client.post("/api/writing-orders", json={"service_code": "visa_form_filling", "application_id": de["id"]})
+    assert r.status_code == 201 and r.json()["price"] == "10.00"
+    p = client.post("/api/writing-orders", json={"service_code": "relationship_portfolio"}).json()
+    assert (p["price"], p["currency"]) == ("20.00", "GBP")

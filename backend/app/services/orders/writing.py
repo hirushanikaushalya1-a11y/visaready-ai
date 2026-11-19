@@ -49,12 +49,24 @@ def transition(db: Session, order: WritingOrder, to: str, actor: User | None, no
     order.status = to
 
 
-def create_order(db: Session, user: User, service_code: str, application_id=None, notes: str | None = None) -> WritingOrder:
+def create_order(db: Session, user: User, service_code: str, application_id=None, notes: str | None = None, quantity: int = 1) -> WritingOrder:
+    from app.models.applications import Application
+
     svc = db.get(ServiceCatalogItem, service_code)
     if not svc or svc.kind != "writing" or not svc.is_active or svc.price_cents is None:
         raise HTTPException(404, "Writing service not available")
+    if not 1 <= quantity <= 20:
+        raise HTTPException(422, "Quantity must be between 1 and 20.")
+    if svc.restricted_countries:
+        app = db.get(Application, application_id) if application_id else None
+        if not app:
+            raise HTTPException(422, "Choose the application this service is for.")
+        if app.country_code in svc.restricted_countries:
+            raise HTTPException(422, f"{svc.name} is not available for {app.country.name}: preparing or lodging visa applications for a fee "
+                                     "there may only be done by a licensed immigration adviser.")
     order = WritingOrder(reference=new_reference(), user_id=user.id, application_id=application_id, service_code=svc.code,
-                         price_cents=svc.price_cents, currency=svc.currency, customer_notes=notes, status="payment_pending")
+                         price_cents=svc.price_cents * quantity, currency=svc.currency, quantity=quantity,
+                         customer_notes=notes, status="payment_pending")
     db.add(order)
     db.flush()
     db.add(OrderEvent(order_type="writing", order_id=order.id, from_status=None, to_status="payment_pending",

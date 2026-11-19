@@ -26,6 +26,7 @@ class OrderIn(BaseModel):
     service_code: str = Field(max_length=60)
     application_id: uuid.UUID | None = None
     notes: str | None = Field(default=None, max_length=2000)
+    quantity: int = Field(default=1, ge=1, le=20)
 
 
 def order_out(db: Session, o: WritingOrder, events: bool = False) -> dict:
@@ -33,7 +34,7 @@ def order_out(db: Session, o: WritingOrder, events: bool = False) -> dict:
     now = utcnow()
     out = {
         "id": str(o.id), "reference": o.reference, "service_code": o.service_code, "service_name": svc.name if svc else o.service_code,
-        "price": fmt_amount(o.price_cents), "currency": o.currency, "status": o.status, "customer_notes": o.customer_notes,
+        "price": fmt_amount(o.price_cents), "currency": o.currency, "quantity": o.quantity, "status": o.status, "customer_notes": o.customer_notes,
         "missing_information_note": o.missing_information_note, "submission_email": get_settings().document_service_email,
         "required_information": svc.required_information if svc else [], "disclaimer": svc.disclaimer if svc else None,
         "paid_at": o.paid_at.isoformat() if o.paid_at else None,
@@ -58,7 +59,7 @@ def order_out(db: Session, o: WritingOrder, events: bool = False) -> dict:
 def create(body: OrderIn, request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if body.application_id:
         owned_application(db, user, body.application_id)
-    o = create_order(db, user, body.service_code, body.application_id, body.notes)
+    o = create_order(db, user, body.service_code, body.application_id, body.notes, body.quantity)
     audit(db, "writing_order.created", actor=user, target_type="writing_order", target_id=o.id, request=request)
     db.commit()
     return order_out(db, o)

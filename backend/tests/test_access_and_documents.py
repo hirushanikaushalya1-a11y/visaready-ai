@@ -1,11 +1,12 @@
 from tests.conftest import create_app, make_client, mrz, paid_app, pdf_bytes, register, upload
 
 
-def test_upload_requires_payment(applicant):
+def test_assessment_is_free(applicant):
     client, _ = applicant
     a = create_app(client)
-    r = upload(client, a["id"], pdf_bytes(["hello"]), "x.pdf")
-    assert r.status_code == 402
+    assert a["status"] == "active" and a["report_unlocked"] is False
+    assert upload(client, a["id"], pdf_bytes(["hello"]), "x.pdf").status_code == 201
+    assert client.post(f"/api/applications/{a['id']}/assessments").status_code == 202
 
 
 def test_rejects_disallowed_file_types(applicant):

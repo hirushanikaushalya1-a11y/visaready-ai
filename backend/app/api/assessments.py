@@ -90,7 +90,7 @@ def request_assessment(application_id: uuid.UUID, request: Request, user: User =
     app = owned_application(db, user, application_id, for_update=True)
     require_unlocked(app)
     if app.assessments_run >= 1 + app.reassessments_allowed:
-        raise HTTPException(402, "You have used all assessments included in your package. You can purchase an additional reassessment.")
+        raise HTTPException(429, "You have reached the limit of assessment runs for this application. Please contact support if you need more.")
     running = db.scalars(select(Assessment).where(Assessment.application_id == app.id, Assessment.is_simulation.is_(False),
                                                   Assessment.status.in_(("queued", "running")))).first()
     if running:
@@ -170,8 +170,11 @@ def refusal_analyses(application_id: uuid.UUID, user: User = Depends(get_current
 
 @router.get("/assessments/{assessment_id}/report", response_class=HTMLResponse)
 def printable_report(assessment_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Self-contained printable report (browser 'Save as PDF')."""
+    """Self-contained printable report (browser 'Save as PDF'). Part of the paid full report."""
+    from app.services.report_access import require_report
+
     a = _owned_assessment(db, user, assessment_id)
+    require_report(db, a.application_id)
     app = db.get(Application, a.application_id)
     d = assessment_out(db, a)
     e = html.escape
@@ -202,8 +205,11 @@ def case_file(assessment_id: uuid.UUID, user: User = Depends(get_current_user), 
 @router.get("/assessments/{assessment_id}/case-file/print", response_class=HTMLResponse)
 def case_file_print(assessment_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     from app.services.evidence.casefile import build_case_file
+    from app.services.report_access import require_report
 
-    f = build_case_file(db, _owned_assessment(db, user, assessment_id))
+    a = _owned_assessment(db, user, assessment_id)
+    require_report(db, a.application_id)
+    f = build_case_file(db, a)
     e = html.escape
     secs = ""
     for sec in f["sections"]:
@@ -227,3 +233,17 @@ th{{background:#f1f5f9}}.m{{color:#64748b;font-size:11px}}.s.satisfied{{color:#1
 <div class="box"><b>Resolve before lodging</b><ul>{block}</ul><b>Explanations to prepare</b><ul>{expl}</ul></div>
 {secs}<p class="m">{'<br>'.join(e(n) for n in f['notes'])}</p></body></html>"""
     return HTMLResponse(body, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/assessments/{assessment_id}/drafts")
+def drafts(assessment_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Suggested drafts. Titles are always visible; full text is part of the paid report."""
+    from app.services.evidence.drafts import build_drafts
+    from app.services.report_access import report_unlocked
+
+    a = _owned_assessment(db, user, assessment_id)
+    items = build_drafts(db, a)
+    unlocked = report_unlocked(db, a.application_id)
+    if not unlocked:
+        items = [{k: v for k, v in d.items() if k != "text"} for d in items]
+    return {"unlocked": unlocked, "drafts": items}

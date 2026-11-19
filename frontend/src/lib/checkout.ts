@@ -19,7 +19,7 @@ export async function startCheckout(purpose: string, referenceId: string) {
     document.body.appendChild(form);
     form.submit();
   } else {
-    const url = new URL(r.checkout.url);
+    const url = new URL(r.checkout.url, window.location.origin); // works for absolute and relative links
     window.location.href = url.pathname + url.search; // same-origin sandbox page
   }
 }

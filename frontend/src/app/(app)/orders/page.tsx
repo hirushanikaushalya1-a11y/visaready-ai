@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { fmtDate, label } from "@/lib/api";
+import { fmtDate, label, amount } from "@/lib/api";
 import { useLoad } from "@/lib/auth";
 import type { WritingOrder } from "@/lib/types";
 import { PageHeader } from "@/components/shell";
@@ -19,7 +19,7 @@ export default function OrdersPage() {
           {data.map((o) => (
             <Link key={o.id} href={`/orders/${o.id}`}>
               <Card className="flex flex-wrap items-center justify-between gap-3 p-4 hover:border-accent/40">
-                <div><p className="font-medium text-ink">{o.service_name}</p><p className="text-xs text-ink-3">{o.reference} · ${o.price} · {fmtDate(o.created_at)}</p></div>
+                <div><p className="font-medium text-ink">{o.service_name}</p><p className="text-xs text-ink-3">{o.reference} · {amount(o.price, o.currency)} · {fmtDate(o.created_at)}</p></div>
                 <div className="flex items-center gap-3">
                   {o.deadline_at && o.seconds_remaining != null && <span className="text-sm">⏱ <Countdown deadline={o.deadline_at} /></span>}
                   <Badge tone={statusTone[o.status]}>{label(o.status)}</Badge>

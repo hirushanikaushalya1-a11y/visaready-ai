@@ -70,7 +70,8 @@ def services(db: Session = Depends(get_db)):
     rows = db.scalars(select(ServiceCatalogItem).where(ServiceCatalogItem.is_active.is_(True)).order_by(ServiceCatalogItem.sort_order)).all()
     return [{"code": s.code, "kind": s.kind, "name": s.name, "description": s.description, "price_cents": s.price_cents,
              "currency": s.currency, "sla_hours": s.sla_hours, "required_information": s.required_information,
-             "inclusions": s.inclusions, "exclusions": s.exclusions, "disclaimer": s.disclaimer} for s in rows]
+             "inclusions": s.inclusions, "exclusions": s.exclusions, "disclaimer": s.disclaimer,
+             "restricted_countries": s.restricted_countries or []} for s in rows]
 
 
 @router.get("/knowledge/search")

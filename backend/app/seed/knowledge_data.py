@@ -494,51 +494,73 @@ EVIDENCE_RULES = [
 
 
 # ---------------------------------------------------------------- services & pricing
+# Bump CATALOG_VERSION whenever the owner changes prices/products: the seed then applies the
+# prices below even over existing rows (otherwise admin-edited prices are never overwritten).
+CATALOG_VERSION = 2
+
+# Destinations where preparing/lodging someone's visa application for a fee is regulated immigration
+# advice that only licensed advisers may give (UK OISC, Canada CICC, Australia OMARA, NZ IAA).
+LICENSED_ADVICE_COUNTRIES = ["GB", "CA", "AU", "NZ"]
+
+_LETTER = dict(kind="writing", price_cents=1000, currency="USD", sla_hours=24)
 SERVICES = [
-    dict(code="assessment", kind="assessment", name="Visa application assessment", price_cents=3300, sla_hours=None, sort_order=1,
-         description="One complete AI-assisted assessment of one visa application.",
+    dict(code="free_assessment", kind="assessment", name="Free file-strength assessment", price_cents=0, currency="USD", sort_order=1,
+         description="Find out how strong your visa file is — free.",
          inclusions=["Secure application workspace", "Personal profile assessment", "Up to 40 document uploads (15 MB each; PDF, JPG, PNG)",
-                     "OCR, document classification and field extraction", "Cross-document inconsistency detection",
-                     "Missing document identification and Evidence Gap Detective", "Financial evidence consistency checks",
-                     "Academic and employment profile analysis", "Personalised country-specific checklist",
-                     "Application readiness report", "Recommendations for improvement",
-                     "Initial assessment plus 3 reassessments after you improve your application", "Progress tracking"],
+                     "Document reading, classification and consistency checks", "Personalised country-specific checklist",
+                     "Readiness score with a full explanation", "Missing evidence, inconsistencies and questions to prepare for",
+                     "Up to 10 assessment runs per application as you improve your file"],
          exclusions=["Not legal or immigration advice", "Does not guarantee or predict a visa decision",
-                     "Does not authenticate documents with issuing authorities", "Human expert review is a separate service",
-                     "Documents are deleted 30 days after the application is completed (configurable; see Privacy Policy)"],
-         disclaimer="The readiness score measures how complete and consistent your application preparation is. It is not a probability of approval."),
-    dict(code="reassessment", kind="reassessment", name="Additional reassessment", price_cents=500, sort_order=2,
-         description="One additional reassessment after the included reassessments are used.", inclusions=[], exclusions=[]),
-    dict(code="cover_letter", kind="writing", name="Visa cover letter", price_cents=2000, sla_hours=24, sort_order=10,
-         description="A professionally prepared cover letter summarising your application and evidence.",
-         required_information=["Your passport bio page", "Visa type and destination", "Summary of your purpose of travel", "Your current document checklist"]),
-    dict(code="sop", kind="writing", name="Statement of Purpose (SOP)", price_cents=2000, sla_hours=24, sort_order=11,
-         description="A truthful, well-structured statement of purpose based on the information you provide.",
+                     "Does not authenticate documents with issuing authorities"],
+         disclaimer="The readiness score measures how complete and consistent your preparation is. It is not a probability of approval."),
+    dict(code="assessment_report", kind="report", name="Full assessment report + suggested drafts", price_cents=3500, currency="EUR", sort_order=2,
+         description="Your complete, downloadable assessment report, the lodge-ready submission file, and suggested drafts for every letter your file needs.",
+         inclusions=["Printable full assessment report (PDF)", "Submission file: numbered, section-by-section case file",
+                     "Suggested drafts: cover letter, SOP outline and every explanation / sponsorship letter your file needs",
+                     "Unlocked instantly for this application, including future reassessments"],
+         exclusions=["Drafts are templates built from your own information — you must complete and check every detail truthfully"]),
+    dict(code="sop", kind="writing", name="Statement of Purpose — complete, strongest version", price_cents=2000, currency="USD", sla_hours=24, sort_order=10,
+         description="We write your full SOP: truthful, specific to your course and background, and structured the way decision-makers read it.",
          required_information=["Offer letter", "Academic certificates and transcripts", "CV", "Your answers to our SOP questionnaire (sent by email)"]),
-    dict(code="explanation_letter", kind="writing", name="Explanation letter", price_cents=500, sla_hours=24, sort_order=12,
-         description="A letter explaining a specific circumstance in your application.", required_information=["What needs explaining", "Supporting documents"]),
-    dict(code="study_gap_letter", kind="writing", name="Study gap explanation", price_cents=500, sla_hours=24, sort_order=13,
-         description="A letter explaining a gap in your studies, based on evidence of what you did.", required_information=["Timeline of the gap period", "Evidence of activities during the gap"]),
-    dict(code="financial_explanation_letter", kind="writing", name="Financial explanation letter", price_cents=500, sla_hours=24, sort_order=14,
-         description="A letter explaining your funds, large deposits or financial arrangements.", required_information=["Bank statements", "Documents showing the source of funds"]),
-    dict(code="sponsorship_letter", kind="writing", name="Financial sponsorship letter", price_cents=500, sla_hours=24, sort_order=15,
-         description="A sponsorship letter for your sponsor to review and sign.", required_information=["Sponsor details and relationship", "Sponsor income and bank evidence"]),
-    dict(code="affidavit_draft", kind="writing", name="Affidavit draft", price_cents=500, sla_hours=24, sort_order=16,
-         description="A draft affidavit for you to review with a lawyer or notary.",
+    dict(code="relationship_portfolio", kind="writing", name="Relationship portfolio", price_cents=2000, currency="GBP", sla_hours=24, sort_order=11,
+         description="We arrange your relationship evidence into an indexed portfolio with a dated relationship timeline and summary.",
+         required_information=["Marriage / partnership certificate (if any)", "Photos, chat and call history, travel and shared-address evidence",
+                               "Joint financial records", "Key dates of your relationship"]),
+    dict(code="cover_letter", name="Visa cover letter", sort_order=20, description="A cover letter summarising your application and evidence.",
+         required_information=["Passport bio page", "Visa type and destination", "Your document checklist"], **_LETTER),
+    dict(code="consent_letter", name="Consent letter", sort_order=21, description="Parental, employer or other consent letters, ready for signature.",
+         required_information=["Who is giving consent and for what", "ID of the person giving consent"], **_LETTER),
+    dict(code="explanation_letter", name="Explanation letter", sort_order=22, description="A letter explaining a specific circumstance in your application.",
+         required_information=["What needs explaining", "Supporting documents"], **_LETTER),
+    dict(code="study_gap_letter", name="Study gap explanation", sort_order=23, description="A letter explaining a gap in your studies, based on evidence of what you did.",
+         required_information=["Timeline of the gap period", "Evidence of activities during the gap"], **_LETTER),
+    dict(code="financial_explanation_letter", name="Financial explanation letter", sort_order=24, description="Explains your funds, large deposits or financial arrangements.",
+         required_information=["Bank statements", "Documents showing the source of funds"], **_LETTER),
+    dict(code="sponsorship_letter", name="Financial sponsorship letter", sort_order=25, description="A sponsorship letter for your sponsor to review and sign.",
+         required_information=["Sponsor details and relationship", "Sponsor income and bank evidence"], **_LETTER),
+    dict(code="employment_explanation_letter", name="Employment explanation letter", sort_order=26, description="Explains employment history, gaps or changes.",
+         required_information=["Employment timeline", "Employer letters"], **_LETTER),
+    dict(code="affidavit_draft", name="Affidavit draft", sort_order=27, description="A draft affidavit for you to review with a lawyer or notary.",
          required_information=["Purpose of the affidavit", "Facts to be declared", "Supporting documents"],
-         disclaimer="This is a draft only. It is not certified, notarised or legally approved. It must be reviewed and executed before a lawyer, notary or commissioner for oaths."),
-    dict(code="employment_explanation_letter", kind="writing", name="Employment explanation letter", price_cents=500, sla_hours=24, sort_order=17,
-         description="A letter explaining employment history, gaps or changes.", required_information=["Employment timeline", "Employer letters"]),
-    dict(code="other_letter", kind="writing", name="Other supporting letter", price_cents=500, sla_hours=24, sort_order=18,
-         description="Other supporting letters. Complex legal documents require a separate quotation.", required_information=["Description of the letter you need"]),
-    dict(code="translation_sworn_si_en", kind="translation", name="Sworn translation: Sinhala → English", price_cents=None, sort_order=30,
+         disclaimer="This is a draft only. It is not certified, notarised or legally approved. It must be reviewed and executed before a lawyer, notary or commissioner for oaths.", **_LETTER),
+    dict(code="other_letter", name="Other supporting letter", sort_order=28, description="Any other supporting letter. Complex legal documents need a separate quotation.",
+         required_information=["Description of the letter you need"], **_LETTER),
+    dict(code="visa_form_filling", kind="writing", name="Visa application form filling", price_cents=1000, currency="USD", sla_hours=24, sort_order=40,
+         description="We complete your visa application form from your documents and email it to you within 24 hours — carefully checked, with unlimited free amendments until you are happy.",
+         required_information=["Passport", "All supporting documents", "Answers to our application questionnaire"],
+         restricted_countries=LICENSED_ADVICE_COUNTRIES,
+         disclaimer="You review and confirm every answer before it is submitted; you remain responsible for its accuracy. Not available where completing visa forms for a fee requires a licensed immigration adviser."),
+    dict(code="online_submission", kind="writing", name="Online document submission", price_cents=2000, currency="USD", sla_hours=24, sort_order=41,
+         description="With your written authorisation, we upload your documents to the official online application portal for you.",
+         required_information=["Signed authorisation", "Final, approved documents", "Portal access as instructed by email"],
+         restricted_countries=LICENSED_ADVICE_COUNTRIES,
+         disclaimer="We submit only documents you have approved. Not available where lodging applications for a fee requires a licensed immigration adviser."),
+    dict(code="translation_sworn_si_en", kind="translation", name="Sworn translation: Sinhala → English", price_cents=None, sort_order=60, is_active=False,
          description="Translation by a Sri Lankan sworn translator. Priced per document after review (quotation).", required_information=["Clear scan of every page"]),
-    dict(code="translation_sworn_ta_en", kind="translation", name="Sworn translation: Tamil → English", price_cents=None, sort_order=31,
+    dict(code="translation_sworn_ta_en", kind="translation", name="Sworn translation: Tamil → English", price_cents=None, sort_order=61, is_active=False,
          description="Translation by a Sri Lankan sworn translator. Priced per document after review (quotation).", required_information=["Clear scan of every page"]),
-    dict(code="human_review", kind="review", name="Human expert review", price_cents=None, sort_order=40,
-         description="A trained reviewer checks your AI findings and documents and adds comments. Reviewers are not necessarily licensed immigration advisers; each reviewer's credentials are shown. Pricing to be confirmed.",
-         is_active=False),
 ]
+RETIRED_SERVICES = ["assessment", "reassessment", "human_review"]
 
 _COMMON_EXCLUSIONS = [
     "The 24-hour clock starts only when we confirm we have received all required information and documents.",
@@ -550,4 +572,4 @@ for _svc in SERVICES:
     if _svc["kind"] == "writing":
         _svc.setdefault("exclusions", list(_COMMON_EXCLUSIONS))
         _svc.setdefault("inclusions", ["Prepared by our document team", "Quality review before delivery",
-                                         "Delivered within 24 hours of complete submission, or the fee is refunded"])
+                                         "Emailed to you within 24 hours of complete submission, or the fee is refunded"])

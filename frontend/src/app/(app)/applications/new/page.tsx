@@ -2,10 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Briefcase, ExternalLink, GraduationCap, Lock, Users } from "lucide-react";
+import { ArrowLeft, Briefcase, ExternalLink, GraduationCap, Users } from "lucide-react";
 import { api, money, post } from "@/lib/api";
 import { useLoad } from "@/lib/auth";
-import { startCheckout } from "@/lib/checkout";
 import type { Application, Country, Service, VisaCategory } from "@/lib/types";
 import { PageHeader } from "@/components/shell";
 import { Alert, Badge, Button, Card, cx, Field, Input, Select, Spinner, Textarea } from "@/components/ui";
@@ -26,7 +25,8 @@ export default function NewApplication() {
   const [details, setDetails] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const price = services?.find((s) => s.code === "assessment");
+  const price = services?.find((s) => s.code === "free_assessment");
+  const report = services?.find((s) => s.code === "assessment_report");
 
   useEffect(() => {
     if (country) api<VisaCategory[]>(`/countries/${country.code}/visa-categories`).then((list) => setCatsFor({ code: country.code, list }));
@@ -35,14 +35,13 @@ export default function NewApplication() {
     if (cat) api<{ requirements: Req[]; note: string | null }>(`/visa-categories/${cat.id}/requirements`).then(setReqs);
   }, [cat]);
 
-  async function create(pay: boolean) {
+  async function create() {
     setBusy(true);
     setError(null);
     try {
       const body = Object.fromEntries(Object.entries(details).filter(([, v]) => v !== "").map(([k, v]) => [k, ["tuition_fee", "salary"].includes(k) ? Number(v) : v]));
       const app = await post<Application>("/applications", { country_code: country!.code, visa_category_id: cat!.id, details: body });
-      if (pay) await startCheckout("assessment", app.id);
-      else router.push(`/applications/${app.id}`);
+      router.push(`/applications/${app.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not create application");
       setBusy(false);
@@ -134,11 +133,11 @@ export default function NewApplication() {
               {cat.official_url && <a href={cat.official_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs text-accent">Official page for this visa <ExternalLink className="h-3 w-3" aria-hidden /></a>}
             </Card>
             <Card className="border-navy/20">
-              <p className="text-sm text-ink-2">Full assessment</p>
-              <p className="text-3xl font-semibold text-ink">{price ? money(price.price_cents) : "—"}</p>
-              <ul className="mt-2 space-y-1 text-xs text-ink-3">{price?.inclusions.slice(2, 3).concat(price.inclusions.slice(-2)).map((i) => <li key={i}>• {i}</li>)}</ul>
-              <Button className={cx("mt-4 w-full")} loading={busy} onClick={() => create(true)}><Lock className="h-4 w-4" aria-hidden /> Create & unlock assessment</Button>
-              <Button variant="ghost" className="mt-2 w-full" disabled={busy} onClick={() => create(false)}>Save as draft (pay later)</Button>
+              <p className="text-sm text-ink-2">File-strength assessment</p>
+              <p className="text-3xl font-semibold text-ok">Free</p>
+              <ul className="mt-2 space-y-1 text-xs text-ink-3">{price?.inclusions.slice(3, 7).map((i) => <li key={i}>• {i}</li>)}</ul>
+              <Button className={cx("mt-4 w-full")} loading={busy} onClick={create}>Start free assessment</Button>
+              {report && <p className="mt-3 text-xs text-ink-3">Optional afterwards: full report with suggested drafts — {money(report.price_cents, report.currency)}.</p>}
               <p className="mt-3 text-[11px] leading-relaxed text-ink-3">{price?.disclaimer}</p>
             </Card>
           </div>

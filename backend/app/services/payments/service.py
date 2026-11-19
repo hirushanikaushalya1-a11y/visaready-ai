@@ -18,12 +18,14 @@ from app.services.payments.providers import WebhookResult, fmt_amount, get_provi
 
 
 def start_payment(db: Session, user: User, purpose: str, reference_id: uuid.UUID, service_code: str,
-                  amount_cents: int | None = None) -> Payment:
+                  amount_cents: int | None = None, currency: str | None = None) -> Payment:
     """Creates (or reuses) a pending payment. Raises 409 if this target is already paid."""
     svc = db.get(ServiceCatalogItem, service_code)
     if not svc or not svc.is_active:
         raise HTTPException(404, "Service not available")
     amount = amount_cents if amount_cents is not None else svc.price_cents
+    if amount == 0:
+        raise HTTPException(400, "This service is free.")
     if amount is None:
         raise HTTPException(400, "This service requires a quotation before payment.")
     paid = db.scalars(select(Payment).where(Payment.purpose == purpose, Payment.reference_id == reference_id,
@@ -33,11 +35,12 @@ def start_payment(db: Session, user: User, purpose: str, reference_id: uuid.UUID
     provider = get_settings().payment_provider
     pending = db.scalars(select(Payment).where(Payment.purpose == purpose, Payment.reference_id == reference_id,
                                                Payment.status == "pending", Payment.user_id == user.id,
-                                               Payment.provider == provider, Payment.amount_cents == amount)).first()
+                                               Payment.provider == provider, Payment.amount_cents == amount,
+                                               Payment.currency == (currency or svc.currency))).first()
     if pending:
         return pending
     p = Payment(user_id=user.id, purpose=purpose, reference_id=reference_id, service_code=service_code, amount_cents=amount,
-                currency=svc.currency, provider=provider, provider_order_id=f"VR{uuid.uuid4().hex[:18].upper()}", status="pending")
+                currency=currency or svc.currency, provider=provider, provider_order_id=f"VR{uuid.uuid4().hex[:18].upper()}", status="pending")
     db.add(p)
     db.flush()
     audit(db, "payment.created", actor=user, target_type="payment", target_id=p.id, purpose=purpose, amount_cents=amount)
@@ -53,21 +56,25 @@ def _next_invoice_number(db: Session) -> str:
 def fulfil(db: Session, p: Payment) -> None:
     """Grant what was bought. Idempotent — only called on the pending->succeeded transition."""
     s = get_settings()
-    if p.purpose == "assessment":
+    if p.purpose == "assessment_report":
+        notify(db, p.user_id, "payment_confirmed", "Your full assessment report is unlocked",
+               f"Payment of {fmt_amount(p.amount_cents)} {p.currency} received (invoice {p.invoice_number}). "
+               "Your printable report, submission file and suggested drafts are now available.", link=f"/applications/{p.reference_id}")
+    elif p.purpose == "assessment":
         app = db.get(Application, p.reference_id)
         if app and app.status == "draft":
             app.status = "active"
             app.unlocked_at = utcnow()
             app.reassessments_allowed = s.included_reassessments
         notify(db, p.user_id, "payment_confirmed", "Payment received – your assessment is unlocked",
-               f"We received your payment of ${fmt_amount(p.amount_cents)} {p.currency}. Invoice {p.invoice_number}. "
+               f"We received your payment of {fmt_amount(p.amount_cents)} {p.currency}. Invoice {p.invoice_number}. "
                "You can now upload documents and run your assessment.", link=f"/applications/{p.reference_id}")
     elif p.purpose == "reassessment":
         app = db.get(Application, p.reference_id)
         if app:
             app.reassessments_allowed += 1
         notify(db, p.user_id, "payment_confirmed", "Additional reassessment purchased",
-               f"Payment of ${fmt_amount(p.amount_cents)} received. Invoice {p.invoice_number}.", link=f"/applications/{p.reference_id}")
+               f"Payment of {fmt_amount(p.amount_cents)} {p.currency} received. Invoice {p.invoice_number}.", link=f"/applications/{p.reference_id}")
     elif p.purpose == "writing_order":
         from app.services.orders.writing import on_payment_success
 
@@ -139,7 +146,7 @@ def process_refund(db: Session, payment: Payment, amount_cents: int, reason: str
         payment.refunded_cents += amount_cents
         payment.status = "refunded" if payment.refunded_cents >= payment.amount_cents else "partially_refunded"
         notify(db, payment.user_id, "refund_processed", "Your refund has been processed",
-               f"We have refunded ${fmt_amount(amount_cents)} {payment.currency} to your original payment method. "
+               f"We have refunded {fmt_amount(amount_cents)} {payment.currency} to your original payment method. "
                "Depending on your bank or card issuer it can take 5–10 business days (sometimes longer) to appear.")
     else:
         refund.status, refund.failure_reason = "failed", err
