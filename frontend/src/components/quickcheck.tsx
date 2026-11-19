@@ -2,12 +2,36 @@
 
 import { useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, FileText, Loader2, Sparkles, UploadCloud, XCircle } from "lucide-react";
-import { upload } from "@/lib/api";
+import { ApiError, upload } from "@/lib/api";
 import type { AiReview, Application, Doc } from "@/lib/types";
 import { Alert, Badge, Button, Card, cx, SectionTitle, severityTone } from "./ui";
 
 const ACCEPT = ["application/pdf", "image/jpeg", "image/png"];
-type Item = { key: string; name: string; state: "uploading" | "done" | "error"; error?: string };
+type Item = { key: string; name: string; state: "uploading" | "done" | "error"; error?: string; file?: File };
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Uploads one file, retrying automatically when the server is busy, restarting or the connection drops. */
+async function uploadWithRetry(appId: string, f: File, onRetry: (n: number) => void) {
+  for (let attempt = 1; ; attempt++) {
+    const fd = new FormData();
+    fd.append("file", f);
+    try {
+      return await upload(`/applications/${appId}/documents`, fd);
+    } catch (e) {
+      const status = e instanceof ApiError ? e.status : 0; // 0 = network error / server restarting
+      const transient = status === 0 || status === 429 || status >= 500;
+      if (!transient || attempt >= 5) throw e;
+      onRetry(attempt);
+      await sleep(Math.min(30_000, 4_000 * attempt));
+    }
+  }
+}
+
+function friendly(e: unknown) {
+  if (e instanceof ApiError) return e.status >= 500 ? "The server was busy — press Try again" : e.message;
+  return "Connection lost — press Try again";
+}
 
 /** Big drag-and-drop area: drop every document at once. No document types to choose. */
 export function DropZone({ app, onUploaded, compact = false, onBatchDone }: { app: Application; onUploaded: () => void; compact?: boolean; onBatchDone?: () => void }) {
@@ -15,28 +39,40 @@ export function DropZone({ app, onUploaded, compact = false, onBatchDone }: { ap
   const [items, setItems] = useState<Item[]>([]);
   const input = useRef<HTMLInputElement>(null);
 
-  async function handle(files: FileList | File[]) {
-    const list = Array.from(files);
-    const fresh: Item[] = list.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name, state: "uploading" }));
-    setItems((cur) => [...fresh, ...cur].slice(0, 60));
+  async function run(batch: Item[]) {
     const set = (key: string, patch: Partial<Item>) => setItems((cur) => cur.map((x) => (x.key === key ? { ...x, ...patch } : x)));
-    // Upload three at a time so large batches finish quickly without overloading the connection.
+    // Two at a time: quick for large batches, gentle on the server while it reads earlier documents.
     let next = 0;
     async function worker() {
-      while (next < list.length) {
-        const i = next++;
-        const f = list[i], key = fresh[i].key;
-        if (!ACCEPT.includes(f.type) && !/\.(pdf|jpe?g|png)$/i.test(f.name)) { set(key, { state: "error", error: "Only PDF, JPG or PNG" }); continue; }
-        if (f.size > app.limits.max_file_size_mb * 1024 * 1024) { set(key, { state: "error", error: `Larger than ${app.limits.max_file_size_mb} MB` }); continue; }
-        const fd = new FormData();
-        fd.append("file", f);
-        try { await upload(`/applications/${app.id}/documents`, fd); set(key, { state: "done" }); onUploaded(); }
-        catch (e) { set(key, { state: "error", error: e instanceof Error ? e.message : "Upload failed" }); }
+      while (next < batch.length) {
+        const it = batch[next++];
+        const f = it.file!;
+        if (!ACCEPT.includes(f.type) && !/\.(pdf|jpe?g|png)$/i.test(f.name)) { set(it.key, { state: "error", error: "Only PDF, JPG or PNG", file: undefined }); continue; }
+        if (f.size > app.limits.max_file_size_mb * 1024 * 1024) { set(it.key, { state: "error", error: `Larger than ${app.limits.max_file_size_mb} MB — please compress or split it`, file: undefined }); continue; }
+        try {
+          await uploadWithRetry(app.id, f, (n) => set(it.key, { state: "uploading", error: `Retrying (${n})…` }));
+          set(it.key, { state: "done", error: undefined, file: undefined });
+          onUploaded();
+        } catch (e) { set(it.key, { state: "error", error: friendly(e) }); }
       }
     }
-    await Promise.all([worker(), worker(), worker()]);
+    await Promise.all([worker(), worker()]);
     onUploaded();
     onBatchDone?.();
+  }
+
+  function handle(files: FileList | File[]) {
+    const list = Array.from(files);
+    const fresh: Item[] = list.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name, state: "uploading", file: f }));
+    setItems((cur) => [...fresh, ...cur].slice(0, 60));
+    void run(fresh);
+  }
+
+  const retryable = items.filter((x) => x.state === "error" && x.file);
+  function retryFailed() {
+    const batch = retryable.map((x) => ({ ...x, state: "uploading" as const, error: undefined }));
+    setItems((cur) => cur.map((x) => batch.find((b) => b.key === x.key) ?? x));
+    void run(batch);
   }
 
   return (
@@ -64,11 +100,19 @@ export function DropZone({ app, onUploaded, compact = false, onBatchDone }: { ap
             <li key={x.key} className="flex min-w-0 items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-sm">
               {x.state === "uploading" ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent" aria-hidden />
                 : x.state === "done" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-ok" aria-hidden /> : <XCircle className="h-4 w-4 shrink-0 text-bad" aria-hidden />}
-              <span className="min-w-0 flex-1 truncate text-ink-2">{x.name}</span>
-              <span className="shrink-0 text-xs text-ink-3">{x.state === "uploading" ? "Uploading…" : x.state === "done" ? "Uploaded" : x.error}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-ink-2">{x.name}</span>
+                <span className={cx("block text-xs", x.state === "error" ? "text-bad" : "text-ink-3")}>{x.state === "uploading" ? (x.error ?? "Uploading…") : x.state === "done" ? "Uploaded" : x.error}</span>
+              </span>
             </li>
           ))}
         </ul>
+      )}
+      {retryable.length > 0 && !items.some((x) => x.state === "uploading") && (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Button onClick={retryFailed}>Try again ({retryable.length} {retryable.length === 1 ? "file" : "files"})</Button>
+          <span className="text-sm text-ink-3">Files that uploaded are safe — only the failed ones are sent again.</span>
+        </div>
       )}
     </div>
   );

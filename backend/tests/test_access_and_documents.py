@@ -130,3 +130,13 @@ def test_replace_document_keeps_history(applicant):
     current = client.get(f"/api/applications/{a['id']}/documents").json()
     assert [x["id"] for x in current] == [d2["id"]]
     assert len(client.get(f"/api/applications/{a['id']}/documents?include_replaced=true").json()) == 2
+
+
+def test_retried_upload_is_not_duplicated(applicant):
+    client, _ = applicant
+    a = paid_app(client)
+    data = pdf_bytes(["Offer of place", "University"])
+    d1 = upload(client, a["id"], data, "offer.pdf").json()
+    d2 = upload(client, a["id"], data, "offer.pdf").json()
+    assert d1["id"] == d2["id"]
+    assert len(client.get(f"/api/applications/{a['id']}/documents").json()) == 1

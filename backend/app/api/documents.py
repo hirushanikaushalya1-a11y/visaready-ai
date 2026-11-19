@@ -98,6 +98,14 @@ async def upload_document(
         if problem:
             raise HTTPException(422, problem)
     # Malware scanning: hook point. AWAITING INTEGRATION (e.g. ClamAV daemon / cloud scanning API).
+    # Idempotent: if the same file is already in this application (e.g. a retried upload whose first
+    # attempt actually succeeded), return the existing document instead of storing a duplicate.
+    digest = hashlib.sha256(data).hexdigest()
+    if not replaces_id:
+        same = db.scalars(select(Document).where(Document.application_id == a.id, Document.sha256 == digest,
+                                                 Document.deleted_at.is_(None), Document.is_current.is_(True))).first()
+        if same:
+            return doc_out(same)
     old = None
     if replaces_id:
         old = db.scalars(select(Document).where(Document.id == replaces_id, Document.application_id == a.id, Document.deleted_at.is_(None))).first()
@@ -105,7 +113,7 @@ async def upload_document(
             raise HTTPException(404, "Document to replace not found")
     key, wrapped = store_encrypted(f"applications/{a.id}", data)
     doc = Document(application_id=a.id, uploaded_by_id=user.id, original_filename=_safe_name(file.filename), content_type=ctype,
-                   size_bytes=len(data), sha256=hashlib.sha256(data).hexdigest(), storage_key=key, wrapped_key=wrapped,
+                   size_bytes=len(data), sha256=digest, storage_key=key, wrapped_key=wrapped,
                    declared_type=declared_type or (old.declared_type if old else None),
                    checklist_item_key=checklist_item_key or (old.checklist_item_key if old else None),
                    family_member_id=family_member_id, replaces_id=old.id if old else None, status="uploaded")

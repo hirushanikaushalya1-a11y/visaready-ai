@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
+  experimental: {
+    // Uploads (up to 15 MB each) pass through the /api proxy: the default 10 MB body cap and
+    // 30-second proxy timeout would cut large documents off.
+    proxyClientMaxBodySize: "20mb",
+    proxyTimeout: 300_000,
+  },
   turbopack: {
     rules: {
       "*.css": {

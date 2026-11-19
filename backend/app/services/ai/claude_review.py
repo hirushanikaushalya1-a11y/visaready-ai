@@ -32,6 +32,9 @@ log = logging.getLogger("visaready.claude_review")
 # total comfortably below that. Documents beyond the budget are sent as their extracted text.
 RAW_FILE_BUDGET = 18 * 1024 * 1024
 MAX_FILES = 40
+# Native PDF pages are read as image + text (roughly 1.5-3k tokens per page) and requests have a page
+# limit, so only the first ~90 pages are sent as files; the rest go as extracted text.
+PAGE_BUDGET = 90
 
 SYSTEM_PROMPT = """You are a meticulous, senior visa case reviewer working for VisaReady AI, an independent visa \
 preparation service. You read an applicant's documents word for word and tell them, in plain and kind English, how \
@@ -157,6 +160,7 @@ def _content(db: Session, assessment: Assessment) -> list[dict]:
 
     blocks: list[dict] = []
     used = 0
+    pages_used = 0
     as_text: list[str] = []
     for n, d in enumerate(docs, 1):
         label = f"Document {n}: {d.original_filename}"
@@ -165,11 +169,13 @@ def _content(db: Session, assessment: Assessment) -> list[dict]:
         except Exception:  # noqa: BLE001 - a missing blob must not stop the review
             as_text.append(f"{label}\n[file could not be loaded]")
             continue
-        if used + len(data) > RAW_FILE_BUDGET:
+        n_pages = max(1, len(d.pages))
+        if used + len(data) > RAW_FILE_BUDGET or pages_used + n_pages > PAGE_BUDGET:
             text = "\n".join(f"[page {p.page_number}]\n{p.text}" for p in d.pages)
-            as_text.append(f"{label} (sent as extracted text because of size limits)\n{text}")
+            as_text.append(f"{label} (sent as extracted text because of size limits; text may come from OCR)\n{text}")
             continue
         used += len(data)
+        pages_used += n_pages
         b64 = base64.standard_b64encode(data).decode()
         if d.content_type == "application/pdf":
             blocks.append({"type": "document", "title": d.original_filename,

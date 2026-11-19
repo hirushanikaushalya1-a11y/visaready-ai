@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import io
 import shutil
+import os
 import subprocess
+import threading
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -90,6 +92,11 @@ def _ocr_image(path: Path) -> tuple[str, float | None]:
     return "".join(text_parts).strip(), conf_avg
 
 
+# OCR is the heaviest step (CPU and memory). On small servers, read one scanned page at a time across
+# all worker threads; text-based PDFs are unaffected.
+_OCR_SLOTS = threading.BoundedSemaphore(max(1, int(os.environ.get("OCR_CONCURRENCY", "1"))))
+
+
 def extract_pages(data: bytes, content_type: str) -> list[PageText]:
     with tempfile.TemporaryDirectory(prefix="vr-doc-") as tmp:
         tmpdir = Path(tmp)
@@ -109,21 +116,25 @@ def extract_pages(data: bytes, content_type: str) -> list[PageText]:
                     continue
                 # Scanned page: rasterise and OCR.
                 prefix = tmpdir / f"p{i}"
-                subprocess.run(["pdftoppm", "-r", "200", "-gray", "-png", "-f", str(i), "-l", str(i), str(src), str(prefix)],
-                               capture_output=True, timeout=120, check=False)
-                imgs = sorted(tmpdir.glob(f"p{i}*.png"))
-                if imgs:
-                    t, conf = _ocr_image(imgs[0])
-                    pages.append(PageText(i, t, "ocr", conf))
-                else:
-                    pages.append(PageText(i, text, "pdf_text"))
+                with _OCR_SLOTS:
+                    subprocess.run(["pdftoppm", "-r", "200", "-gray", "-png", "-f", str(i), "-l", str(i), str(src), str(prefix)],
+                                   capture_output=True, timeout=120, check=False)
+                    imgs = sorted(tmpdir.glob(f"p{i}*.png"))
+                    if imgs:
+                        t, conf = _ocr_image(imgs[0])
+                        pages.append(PageText(i, t, "ocr", conf))
+                        for img in imgs:
+                            img.unlink(missing_ok=True)
+                    else:
+                        pages.append(PageText(i, text, "pdf_text"))
             return pages
         # images
         if not ocr_available():
             return [PageText(1, "", "unavailable")]
         src = tmpdir / ("in" + ALLOWED_TYPES[content_type])
         src.write_bytes(data)
-        t, conf = _ocr_image(src)
+        with _OCR_SLOTS:
+            t, conf = _ocr_image(src)
         return [PageText(1, t, "ocr", conf)]
 
 

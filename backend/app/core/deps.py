@@ -80,5 +80,5 @@ def require_unlocked(app: Application) -> None:
     if app.status not in ("active", "completed"):
         raise HTTPException(
             status_code=402,
-            detail="This feature is part of the $33 assessment package. Complete payment to unlock it.",
+            detail="This application is closed. Reopen it from your dashboard to add documents.",
         )
