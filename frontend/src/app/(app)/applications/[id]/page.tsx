@@ -10,7 +10,7 @@ import { startCheckout } from "@/lib/checkout";
 import type { Application, Assessment, Doc, Service } from "@/lib/types";
 import { PageHeader } from "@/components/shell";
 import { Alert, Badge, Button, Card, Spinner, statusTone, Tabs } from "@/components/ui";
-import { AiReviewCard, QuickCheck } from "@/components/quickcheck";
+import { FileCheckDashboard } from "@/components/filecheck";
 import { CaseFile, Checklist, Documents, Drafts, FamilyMap, Findings, Improvements, Overview, ProofBuilder, Questions, WhatIf } from "@/components/workspace";
 
 async function pollAssessment(assessmentId: string): Promise<Assessment> {
@@ -115,9 +115,14 @@ export default function Workspace() {
           ]} />
           {tab === "overview" && (
             <div className="space-y-6">
-              <QuickCheck app={app} docs={docs} reloadDocs={docsQ.load} onCheck={run} checking={running} hasResult={!!a} />
-              {a && <AiReviewCard review={a.summary.ai_review} error={a.summary.ai_review_error} />}
-              {a && <Overview app={app} a={a} onRun={run} running={running} onBuyReport={buyReport} />}
+              <FileCheckDashboard app={app} docs={docs} a={a} reloadDocs={docsQ.load} onCheck={run} checking={running}
+                onBatchDone={() => { if (!running && app.reassessments.remaining > 0) run(); }} />
+              {a && (
+                <details className="rounded-xl border border-line bg-surface">
+                  <summary className="cursor-pointer px-5 py-4 text-sm font-medium text-ink">Full score breakdown and limitations</summary>
+                  <div className="px-5 pb-5"><Overview app={app} a={a} onRun={run} running={running} onBuyReport={buyReport} /></div>
+                </details>
+              )}
             </div>
           )}
           {tab === "checklist" && <Checklist app={app} a={a} docs={docs} onStateChange={appQ.load} onUploadFor={(key, type) => { setPreset({ key, type }); setTab("documents"); }} />}

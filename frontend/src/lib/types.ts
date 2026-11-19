@@ -95,4 +95,5 @@ export type AiReview = {
   problems: { title: string; severity: "high" | "medium" | "low"; explanation: string; how_to_fix: string; documents: string[] }[];
   missing_documents: { document: string; why_needed: string }[];
   questions_to_prepare: string[]; next_steps: string[]; professional_advice_recommended: boolean;
+  if_submitted_now?: string[];
 };

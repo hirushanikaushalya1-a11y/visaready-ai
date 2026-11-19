@@ -14,7 +14,7 @@ REVIEW = {
     "strengths": ["Valid passport"], "problems": [{"title": "No offer letter", "severity": "high", "explanation": "x",
                                                    "how_to_fix": "Upload it", "documents": []}],
     "missing_documents": [{"document": "Offer letter", "why_needed": "Required"}],
-    "questions_to_prepare": ["Why this course?"], "next_steps": ["Upload the offer letter"],
+    "if_submitted_now": ["The officer would query the missing offer letter."], "questions_to_prepare": ["Why this course?"], "next_steps": ["Upload the offer letter"],
     "professional_advice_recommended": False,
 }
 

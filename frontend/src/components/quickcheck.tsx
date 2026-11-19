@@ -10,7 +10,7 @@ const ACCEPT = ["application/pdf", "image/jpeg", "image/png"];
 type Item = { key: string; name: string; state: "uploading" | "done" | "error"; error?: string };
 
 /** Big drag-and-drop area: drop every document at once. No document types to choose. */
-export function DropZone({ app, onUploaded, compact = false }: { app: Application; onUploaded: () => void; compact?: boolean }) {
+export function DropZone({ app, onUploaded, compact = false, onBatchDone }: { app: Application; onUploaded: () => void; compact?: boolean; onBatchDone?: () => void }) {
   const [over, setOver] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const input = useRef<HTMLInputElement>(null);
@@ -36,6 +36,7 @@ export function DropZone({ app, onUploaded, compact = false }: { app: Applicatio
     }
     await Promise.all([worker(), worker(), worker()]);
     onUploaded();
+    onBatchDone?.();
   }
 
   return (
@@ -57,9 +58,9 @@ export function DropZone({ app, onUploaded, compact = false }: { app: Applicatio
         <input ref={input} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="hidden"
           onChange={(e) => { if (e.target.files?.length) handle(e.target.files); e.target.value = ""; }} />
       </div>
-      {items.length > 0 && (
+      {items.some((x) => x.state !== "done") && (
         <ul className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-          {items.map((x) => (
+          {items.filter((x) => x.state !== "done").map((x) => (
             <li key={x.key} className="flex min-w-0 items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-sm">
               {x.state === "uploading" ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent" aria-hidden />
                 : x.state === "done" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-ok" aria-hidden /> : <XCircle className="h-4 w-4 shrink-0 text-bad" aria-hidden />}

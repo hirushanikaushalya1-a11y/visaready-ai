@@ -51,7 +51,7 @@ invent rules, fees, deadlines or money thresholds.
 backed by genuine evidence.
 7. Recommend a qualified immigration adviser or lawyer where the situation needs professional judgement (for example \
 previous overstays, refusals for deception, or criminal records).
-Write for someone who is not technical. Be specific and practical."""
+Write like an experienced, serious immigration adviser speaking to a client who is not technical: calm, precise, specific and practical. In `if_submitted_now`, describe in 2-5 short statements how a visa officer would most likely view this file if it were submitted today and which points would draw scrutiny or could lead to a refusal on their own - without giving any percentage, odds or guarantee. In each problem's `how_to_fix`, give one concrete action the applicant can take this week."""
 
 SCHEMA = {
     "type": "object",
@@ -99,12 +99,13 @@ SCHEMA = {
                 "additionalProperties": False,
             },
         },
+        "if_submitted_now": {"type": "array", "items": {"type": "string"}},
         "questions_to_prepare": {"type": "array", "items": {"type": "string"}},
         "next_steps": {"type": "array", "items": {"type": "string"}},
         "professional_advice_recommended": {"type": "boolean"},
     },
     "required": ["file_strength", "headline", "summary", "documents", "strengths", "problems", "missing_documents",
-                 "questions_to_prepare", "next_steps", "professional_advice_recommended"],
+                 "if_submitted_now", "questions_to_prepare", "next_steps", "professional_advice_recommended"],
     "additionalProperties": False,
 }
 
