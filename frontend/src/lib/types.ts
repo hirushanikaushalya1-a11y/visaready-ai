@@ -55,7 +55,8 @@ export type ScoreComponent = { ratio: number | null; points: number | null; max_
 export type Assessment = {
   id: string; application_id: string; version: number; status: string; readiness_score: number | null;
   score_breakdown: { components: Record<string, ScoreComponent>; note: string };
-  summary: { counts: Record<string, number>; limitations: string[]; disclaimer: string; country_module_status: string };
+  summary: { counts: Record<string, number>; limitations: string[]; disclaimer: string; country_module_status: string;
+    ai_review?: AiReview; ai_review_error?: string };
   ai_provider: string; created_at: string; completed_at: string | null; error: string | null;
   findings: Finding[]; checklist: ChecklistItem[]; claims: Claim[];
 };
@@ -86,3 +87,12 @@ export type WritingOrder = {
   customer?: { name: string; email: string };
 };
 export type Notification = { id: string; kind: string; title: string; body: string; link: string | null; read: boolean; email_status: string; created_at: string };
+
+export type AiReview = {
+  file_strength: "strong" | "fair" | "weak"; headline: string; summary: string;
+  documents: { filename: string; what_it_is: string; readable: boolean; key_facts: string[]; concerns: string[] }[];
+  strengths: string[];
+  problems: { title: string; severity: "high" | "medium" | "low"; explanation: string; how_to_fix: string; documents: string[] }[];
+  missing_documents: { document: string; why_needed: string }[];
+  questions_to_prepare: string[]; next_steps: string[]; professional_advice_recommended: boolean;
+};

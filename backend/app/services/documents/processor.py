@@ -7,6 +7,7 @@ import uuid
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import utcnow
 from app.models.applications import Document, DocumentPage, ExtractedField
 from app.services.ai.provider import AIUnavailable, ai_extract_fields, provider_name
@@ -69,7 +70,7 @@ def process_document(db: Session, document_id: uuid.UUID) -> Document:
             db.add(ExtractedField(document_id=doc.id, field_name=f.name, value=f.value[:2000], normalized_value=f.normalized,
                                   page_number=f.page, snippet=f.snippet, confidence=f.confidence, method=f.method))
 
-        if provider_name() != "none":
+        if provider_name() != "none" and get_settings().ai_per_document_extraction:
             try:
                 for f in ai_extract_fields([(p.page_number, p.text) for p in pages if p.text.strip()], doc.detected_type):
                     norm = f["value"]

@@ -34,9 +34,12 @@ def main() -> None:
 
 def start_embedded() -> None:
     """Run the worker loop in a daemon thread inside the API process (single-service hosting)."""
+    import os
     import threading
 
-    threading.Thread(target=run_loop, name="visaready-worker", daemon=True).start()
+    # Several threads so a batch of uploads is processed in parallel (jobs are claimed with SKIP LOCKED).
+    for n in range(max(1, int(os.environ.get("WORKER_THREADS", "3")))):
+        threading.Thread(target=run_loop, name=f"visaready-worker-{n}", daemon=True).start()
 
 
 def run_loop() -> None:

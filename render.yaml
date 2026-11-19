@@ -29,6 +29,12 @@ services:
         value: sandbox
       - key: EMAIL_BACKEND
         value: outbox
+      - key: AI_PROVIDER
+        value: anthropic          # Claude reads documents once ANTHROPIC_API_KEY is set
+      - key: ANTHROPIC_API_KEY    # paste your key from console.anthropic.com (Render -> Environment)
+        sync: false
+      - key: WORKER_THREADS
+        value: "3"
       - key: SEED_ADMIN_EMAIL     # you will be asked to type these when deploying
         sync: false
       - key: SEED_ADMIN_PASSWORD

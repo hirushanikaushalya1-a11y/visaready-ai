@@ -26,7 +26,13 @@ def _run_assessment(db: Session, payload: dict) -> None:
     a.status = "running"
     db.commit()
     try:
-        run_assessment(db, a.application_id, a.triggered_by_id, assessment_id=a.id)
+        a = run_assessment(db, a.application_id, a.triggered_by_id, assessment_id=a.id)
+        db.commit()
+        # Claude reads every document and writes the case review (optional; reused if nothing changed).
+        from app.services.ai.claude_review import attach_review
+
+        attach_review(db, a)
+        db.commit()
         app = db.get(Application, a.application_id)
         notify(db, app.user_id, "assessment_complete", f"Assessment v{a.version} is ready",
                f"Your readiness report for '{app.title}' is ready. Readiness score: {a.readiness_score}/100 "

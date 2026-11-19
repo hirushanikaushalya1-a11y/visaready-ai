@@ -90,4 +90,6 @@ def claim_next(worker_id: str) -> uuid.UUID | None:
 
 
 def worker_id() -> str:
-    return f"{socket.gethostname()}:{os.getpid()}"
+    import threading
+
+    return f"{socket.gethostname()}:{os.getpid()}:{threading.current_thread().name}"

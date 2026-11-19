@@ -54,15 +54,14 @@ def _complete(system: str, user: str, max_tokens: int = 1500) -> str:
     s = get_settings()
     name = provider_name()
     if name == "anthropic":
-        r = httpx.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": s.anthropic_api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-            json={"model": s.anthropic_model, "max_tokens": max_tokens, "system": system,
-                  "messages": [{"role": "user", "content": user}]},
-            timeout=90,
-        )
-        r.raise_for_status()
-        return "".join(b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text")
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=s.anthropic_api_key, timeout=90.0)
+        msg = client.messages.create(model=s.anthropic_model, max_tokens=max(max_tokens, 4000), system=system,
+                                     output_config={"effort": "low"}, messages=[{"role": "user", "content": user}])
+        if msg.stop_reason == "refusal":
+            raise AIUnavailable("The AI provider declined this request")
+        return "".join(b.text for b in msg.content if b.type == "text")
     if name == "openai":
         r = httpx.post(
             "https://api.openai.com/v1/chat/completions",

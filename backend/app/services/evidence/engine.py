@@ -116,6 +116,8 @@ def analyse(db: Session, application_id: uuid.UUID, overrides: dict | None = Non
                            "Always confirm against the official source link shown on each item.")
     if provider_name() == "none":
         limitations.append("Document data was extracted with rule-based methods (no AI provider configured). Some fields may not be detected.")
+    elif provider_name() == "anthropic":
+        limitations.append("Your documents were read in full by Claude (Anthropic) to prepare the case review. AI can make mistakes — check every point against your documents.")
     limitations.append("Documents are checked for readability and consistency only. Authenticity has not been independently verified with issuing authorities.")
 
     summary = {
@@ -153,8 +155,11 @@ def run_assessment(db: Session, application_id: uuid.UUID, triggered_by: uuid.UU
                        triggered_by_id=triggered_by, is_simulation=simulation, scenario=overrides)
         db.add(a)
         db.flush()
+    from app.services.ai.claude_review import enabled as claude_review_enabled
+
+    # When the Claude case review is on it already explains the file in plain language; skip the extra call.
     plain = ai_plain_language([{"id": f.fingerprint, "text": f.explanation} for f in result["findings"][:25]
-                               if f.kind not in ("strength",)]) if not simulation else {}
+                               if f.kind not in ("strength",)]) if not simulation and not claude_review_enabled() else {}
     for f in result["findings"]:
         db.add(AssessmentFinding(
             assessment_id=a.id, fingerprint=f.fingerprint, kind=f.kind, category=f.category, severity=f.severity,

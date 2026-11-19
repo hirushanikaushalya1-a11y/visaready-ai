@@ -10,6 +10,7 @@ import { startCheckout } from "@/lib/checkout";
 import type { Application, Assessment, Doc, Service } from "@/lib/types";
 import { PageHeader } from "@/components/shell";
 import { Alert, Badge, Button, Card, Spinner, statusTone, Tabs } from "@/components/ui";
+import { AiReviewCard, QuickCheck } from "@/components/quickcheck";
 import { CaseFile, Checklist, Documents, Drafts, FamilyMap, Findings, Improvements, Overview, ProofBuilder, Questions, WhatIf } from "@/components/workspace";
 
 async function pollAssessment(assessmentId: string): Promise<Assessment> {
@@ -49,6 +50,14 @@ export default function Workspace() {
     setRunning(true);
     setError(null);
     try {
+      // One click: wait until every document has been read, then run the check.
+      for (let i = 0; i < 120; i++) {
+        const list = await api<Doc[]>(`/applications/${id}/documents`);
+        if (!list.some((d) => ["uploaded", "processing"].includes(d.status))) break;
+        docsQ.load();
+        await new Promise((res) => setTimeout(res, 2000));
+      }
+      docsQ.load();
       const r = await post<{ id: string }>(`/applications/${id}/assessments`);
       const done = await pollAssessment(r.id);
       if (done.status === "completed") setA(done);
@@ -104,7 +113,13 @@ export default function Workspace() {
             { id: "whatif", label: "What-if" },
             { id: "family", label: "Family", count: app.family_members?.length },
           ]} />
-          {tab === "overview" && <Overview app={app} a={a} onRun={run} running={running} onBuyReport={buyReport} />}
+          {tab === "overview" && (
+            <div className="space-y-6">
+              <QuickCheck app={app} docs={docs} reloadDocs={docsQ.load} onCheck={run} checking={running} hasResult={!!a} />
+              {a && <AiReviewCard review={a.summary.ai_review} error={a.summary.ai_review_error} />}
+              {a && <Overview app={app} a={a} onRun={run} running={running} onBuyReport={buyReport} />}
+            </div>
+          )}
           {tab === "checklist" && <Checklist app={app} a={a} docs={docs} onStateChange={appQ.load} onUploadFor={(key, type) => { setPreset({ key, type }); setTab("documents"); }} />}
           {tab === "documents" && <Documents app={app} docs={docs} reload={docsQ.load} preset={preset} clearPreset={() => setPreset(null)} />}
           {tab === "casefile" && <CaseFile a={a} unlocked={app.report_unlocked} onBuyReport={buyReport} onUploadFor={() => setTab("documents")} />}

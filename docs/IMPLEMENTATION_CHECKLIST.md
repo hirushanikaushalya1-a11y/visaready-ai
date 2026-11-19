@@ -52,6 +52,16 @@ _Last updated: end of build session 1 (Phases 1–3 delivered; foundations for 4
 | Euro pricing throughout (multi-currency capable) | ✅ |
 | EUR acceptance with PayHere | ⬜ confirm with PayHere before going live |
 
+## One-step check + Claude case review (owner request)
+| Item | Status |
+|---|---|
+| Drag-and-drop many documents at once, no type selection (auto-detect), 3 parallel uploads | ✅ |
+| One "Check my file" button: waits for reading, then runs the assessment | ✅ |
+| Claude case review: Claude (claude-opus-5-5, official Anthropic SDK) reads every PDF/image natively and returns a structured plain-language review | ✅ (needs `ANTHROPIC_API_KEY` in Render) |
+| Prompt-injection safe (documents are data), no approval probability, structured JSON output, server-side refusal fallback | ✅ |
+| Review reused when documents/profile unchanged (cost control); failures never break the assessment | ✅ |
+| Parallel document processing (3 worker threads) | ✅ |
+
 ## Phase 4 — Translation marketplace
 🧱 Tables `translators`, `translation_orders`, role & least-privilege permissions, service catalogue entries (quotation), automatic "needs certified translation" detection (Sinhala/Tamil script) — ✅. Ordering UI, quotation, translator dashboard — ⬜.
 
@@ -72,6 +82,6 @@ _Last updated: end of build session 1 (Phases 1–3 delivered; foundations for 4
 Family connection map ✅ · Policy alerts ✅ · Human review 🧱 (table + reviewer credential model; service inactive) · Analytics (basic overview) ✅ · Additional languages ⬜.
 
 ## Test totals
-- Backend: **69 pytest tests**, all passing (`cd backend && pytest`).
+- Backend: **73 pytest tests**, all passing (`cd backend && pytest`).
 - Frontend: `tsc` clean, `eslint` clean, production build clean.
 - E2E: full Playwright journey (applicant + document team + super admin, desktop + 5 mobile pages): passes with 0 console errors and no horizontal overflow.

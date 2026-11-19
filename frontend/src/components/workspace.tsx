@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { api, del, fmtDate, label, post, put, upload } from "@/lib/api";
 import type { Application, Assessment, ChecklistItem, Claim, Diff, Doc, Finding } from "@/lib/types";
+import { DropZone } from "./quickcheck";
 import { Alert, Badge, Button, Card, cx, Empty, Field, Input, Progress, ScoreRing, SectionTitle, Select, severityTone, Spinner, statusTone } from "./ui";
 
 export const DOC_TYPES: [string, string][] = [
@@ -162,9 +163,8 @@ export function Checklist({ app, a, docs, onUploadFor, onStateChange }: { app: A
 
 // ------------------------------------------------------------------ Documents
 export function Documents({ app, docs, reload, preset, clearPreset }: { app: Application; docs: Doc[]; reload: () => void; preset: { key?: string; type?: string } | null; clearPreset: () => void }) {
-  const [typeChoice, setType] = useState<string | null>(null);
-  const type = typeChoice ?? preset?.type ?? "";
-  const [busy, setBusy] = useState(false);
+  const type = preset?.type ?? "";
+  const [, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<Doc | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -209,19 +209,9 @@ export function Documents({ app, docs, reload, preset, clearPreset }: { app: App
   return (
     <div className="space-y-4">
       <Card>
-        <SectionTitle title="Upload a document" subtitle={`PDF, JPG or PNG · up to ${app.limits.max_file_size_mb} MB · ${docs.length}/${app.limits.max_documents} used`} />
-        {preset?.key && <Alert tone="info">Uploading for checklist item <b>{preset.key.replace(/^(req|ev):/, "")}</b>. <button className="underline" onClick={clearPreset}>Clear</button></Alert>}
-        {error && <div className="mt-2"><Alert tone="bad">{error}</Alert></div>}
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-          <Field label="What is this document?" hint="We also detect the type automatically and tell you if it looks different.">
-            <Select value={type} onChange={(e) => setType(e.target.value)}><option value="">Let VisaReady detect it</option>{DOC_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select>
-          </Field>
-          <div>
-            <input ref={fileRef} type="file" accept="application/pdf,image/jpeg,image/png" className="hidden" onChange={(e) => e.target.files?.[0] && send(e.target.files[0])} />
-            <Button onClick={() => fileRef.current?.click()} loading={busy}><Upload className="h-4 w-4" aria-hidden /> Choose file</Button>
-          </div>
-        </div>
-        <p className="mt-3 text-xs text-ink-3">Files are encrypted immediately. Upload complete documents (every page), not photos of screens.</p>
+        <SectionTitle title="Your documents" subtitle={`${docs.length}/${app.limits.max_documents} used · we work out what each document is`} />
+        {error && <div className="mb-3"><Alert tone="bad">{error}</Alert></div>}
+        <DropZone app={app} onUploaded={reload} compact />
       </Card>
       <input ref={replaceRef} type="file" accept="application/pdf,image/jpeg,image/png" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f && replacing) send(f, replacing); setReplacing(null); }} />
       {!docs.length ? <Empty title="No documents yet">Start with your passport, then the documents on your checklist.</Empty> : (

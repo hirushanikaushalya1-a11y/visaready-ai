@@ -45,7 +45,10 @@ class Settings(BaseSettings):
     # --- AI -------------------------------------------------------------
     ai_provider: Literal["none", "anthropic", "openai"] = "none"
     anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-sonnet-5-5"
+    anthropic_model: str = "claude-opus-5-5"
+    # Per-document AI field extraction (extra API call per upload). Off by default: the Claude case review
+    # reads every document in full, and deterministic extraction keeps uploads fast.
+    ai_per_document_extraction: bool = False
     openai_api_key: str | None = None
     openai_model: str = "gpt-4.1"
     ai_training_opt_in_default: bool = False
