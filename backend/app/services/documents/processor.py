@@ -52,6 +52,14 @@ def process_document(db: Session, document_id: uuid.UUID) -> Document:
         doc.detected_type = cls.doc_type
         doc.classification_confidence = cls.confidence
         doc.classification_method = "rules"
+        if not cls.doc_type:
+            hint = X.classify_filename(doc.original_filename)
+            if hint:
+                doc.detected_type, doc.classification_confidence, doc.classification_method = hint, 0.5, "filename"
+        if (doc.detected_type or doc.declared_type) == "photo":
+            # A passport-style photo has no text: that is expected, not a scan problem.
+            quality["issues"] = [i for i in quality["issues"] if not i.startswith(("Little or no readable text", "Text recognition confidence"))]
+            quality["readable"] = True
         if doc.declared_type and cls.doc_type and cls.doc_type != doc.declared_type:
             quality["issues"].append(
                 f"You labelled this as '{doc.declared_type.replace('_', ' ')}', but its content looks more like '{cls.doc_type.replace('_', ' ')}'."

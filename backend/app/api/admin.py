@@ -432,13 +432,13 @@ def order_action(order_id: uuid.UUID, body: OrderAction, request: Request, actor
 
 
 @router.post("/writing-orders/{order_id}/deliver")
-async def deliver(order_id: uuid.UUID, request: Request, file: UploadFile = File(...), actor: User = Depends(require_permission("writing_orders.manage")), db: Session = Depends(get_db)):
+def deliver(order_id: uuid.UUID, request: Request, file: UploadFile = File(...), actor: User = Depends(require_permission("writing_orders.manage")), db: Session = Depends(get_db)):
     o = db.scalars(select(WritingOrder).where(WritingOrder.id == order_id).with_for_update()).first()
     if not o:
         raise HTTPException(404, "Not found")
     if o.status not in ("quality_review", "refund_eligible"):
         raise HTTPException(409, "Documents must pass quality review before delivery.")
-    data = await file.read(20 * 1024 * 1024 + 1)
+    data = file.file.read(20 * 1024 * 1024 + 1)
     ctype = sniff_content_type(data)
     if data[:4] == b"PK\x03\x04":
         ctype = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"

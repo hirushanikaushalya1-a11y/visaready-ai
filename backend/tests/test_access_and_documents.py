@@ -140,3 +140,15 @@ def test_retried_upload_is_not_duplicated(applicant):
     d2 = upload(client, a["id"], data, "offer.pdf").json()
     assert d1["id"] == d2["id"]
     assert len(client.get(f"/api/applications/{a['id']}/documents").json()) == 1
+
+
+def test_filename_hints_for_scans_and_photos():
+    from app.services.documents.extract import classify_filename as c
+
+    assert c("4. NIC.pdf") == "national_id"
+    assert c("12. E TICKET.pdf") == "travel_ticket"
+    assert c("2. Shanika - Photo.pdf") == "photo"
+    assert c("3. Passport Bio and pages.pdf") == "passport"
+    assert c("16. Source of Funds - Land Sale proof with payment proofs.pdf") == "financial_document"
+    assert c("6. Statement of Purpose.pdf") == "sop"
+    assert c("random scan 001.pdf") is None

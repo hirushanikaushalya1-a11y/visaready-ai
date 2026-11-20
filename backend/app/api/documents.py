@@ -64,7 +64,7 @@ def list_documents(application_id: uuid.UUID, include_replaced: bool = False, us
 
 
 @router.post("/applications/{application_id}/documents", status_code=201)
-async def upload_document(
+def upload_document(
     application_id: uuid.UUID, request: Request,
     file: UploadFile = File(...),
     declared_type: str | None = Form(default=None),
@@ -85,7 +85,7 @@ async def upload_document(
     if count >= s.max_documents_per_application and not replaces_id:
         raise HTTPException(422, f"Your package allows up to {s.max_documents_per_application} documents per application.")
     max_bytes = s.max_file_size_mb * 1024 * 1024
-    data = await file.read(max_bytes + 1)
+    data = file.file.read(max_bytes + 1)  # sync endpoint: runs in the threadpool, never blocks the event loop
     if len(data) > max_bytes:
         raise HTTPException(413, f"Files must be {s.max_file_size_mb} MB or smaller.")
     if not data:

@@ -70,17 +70,18 @@ function DocCard({ d, review, onDelete }: { d: Doc; review?: AiReview; onDelete:
   const ai = review?.documents.find((x) => x.filename === d.filename);
   const reading = ["uploaded", "processing"].includes(d.status);
   const failed = d.status === "failed" || (ai && !ai.readable);
-  const unknown = !ai && !d.detected_type;
-  const concern = ai?.concerns[0] ?? d.quality.issues?.[0];
-  const state = reading ? "reading" : failed ? "bad" : concern || unknown ? "warn" : "ok";
-  const title = ai?.what_it_is ?? d.detected_type_label ?? (reading ? "Reading…" : "Unrecognised document");
-  const style = { reading: "border-accent/40", ok: "border-ok/30", warn: "border-warn/40", bad: "border-bad/40" }[state];
+  const concern = ai?.concerns[0];
+  // Before the full check, nothing is shown as a warning: the card simply confirms the file arrived.
+  // Problems are reported once, clearly, in the file check below — not as alarming labels on every card.
+  const state = reading ? "reading" : failed ? "bad" : !ai ? "received" : concern ? "warn" : "ok";
+  const title = ai?.what_it_is ?? d.detected_type_label ?? (reading ? "Reading…" : "Document received");
+  const style = { reading: "border-accent/40", received: "border-line", ok: "border-ok/30", warn: "border-warn/40", bad: "border-bad/40" }[state];
   return (
     <div className={cx("group relative flex min-w-0 flex-col rounded-xl border bg-surface p-4 shadow-sm transition", style)}>
       <div className="flex items-start gap-3">
         <span className={cx("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
-          { reading: "bg-accent-soft text-accent", ok: "bg-ok-soft text-ok", warn: "bg-warn-soft text-warn", bad: "bg-bad-soft text-bad" }[state])}>
-          {state === "reading" ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : state === "ok" ? <CheckCircle2 className="h-5 w-5" aria-hidden />
+          { reading: "bg-accent-soft text-accent", received: "bg-ok-soft text-ok", ok: "bg-ok-soft text-ok", warn: "bg-warn-soft text-warn", bad: "bg-bad-soft text-bad" }[state])}>
+          {state === "reading" ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : state === "ok" || state === "received" ? <CheckCircle2 className="h-5 w-5" aria-hidden />
             : state === "warn" ? <AlertTriangle className="h-5 w-5" aria-hidden /> : <XCircle className="h-5 w-5" aria-hidden />}
         </span>
         <div className="min-w-0 flex-1">
@@ -90,10 +91,10 @@ function DocCard({ d, review, onDelete }: { d: Doc; review?: AiReview; onDelete:
         <button onClick={onDelete} className="rounded p-1 text-ink-3 opacity-60 hover:bg-surface-2 hover:text-bad hover:opacity-100" aria-label={`Remove ${d.filename}`}><Trash2 className="h-4 w-4" /></button>
       </div>
       <p className={cx("mt-3 text-xs leading-relaxed", state === "warn" ? "text-warn" : state === "bad" ? "text-bad" : "text-ink-2")}>
-        {state === "reading" ? "Reading every page…"
+        {state === "reading" ? "Received safely. Reading the pages…"
           : state === "bad" ? "We could not read this file. Upload a clearer, complete scan."
+          : state === "received" ? `Received${d.quality.pages ? ` · ${d.quality.pages} ${d.quality.pages === 1 ? "page" : "pages"}` : ""}. Checked in full in your file check.`
           : concern ? concern
-          : unknown ? "We could not tell what this document is. Check it is the right file."
           : ai?.key_facts[0] ?? "Read successfully."}
       </p>
     </div>

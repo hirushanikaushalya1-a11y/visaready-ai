@@ -80,6 +80,29 @@ def classify(text: str, declared: str | None = None) -> Classification:
     return Classification(best, round(confidence, 2), scores)
 
 
+# Most people name their files well ("NIC.pdf", "E ticket.pdf", "Police certificate.pdf"). When the content
+# alone is not conclusive (scans, photos, other languages) the file name is used as a hint. Order matters.
+FILENAME_HINTS: list[tuple[str, str]] = [
+    (r"passport(?!.*photo)", "passport"), (r"\bnic\b|national.?id|identity.?card", "national_id"),
+    (r"ticket|itinerar|flight|booking", "travel_ticket"), (r"photo", "photo"),
+    (r"\bbc\b|birth", "birth_certificate"), (r"marriage", "marriage_certificate"), (r"police", "police_certificate"),
+    (r"medical", "medical_report"), (r"ielts|toefl|\bpte\b|duolingo|english.?test", "english_test_result"),
+    (r"offer|acceptance|\bcoe\b|\bcas\b|\bloa\b", "offer_letter"), (r"transcript", "academic_transcript"),
+    (r"statement.?of.?purpose|\bsop\b|personal.?statement", "sop"), (r"sponsor", "sponsorship_letter"),
+    (r"relationship", "relationship_evidence"), (r"affidavit", "affidavit"),
+    (r"\bfd\b|fixed.?deposit|saving|source.?of.?fund|land|deed|loan", "financial_document"),
+    (r"payment|receipt|tuition|fee", "fee_receipt"), (r"bank.?statement|statement", "bank_statement"),
+    (r"employ|experience|service.?letter", "employment_letter"), (r"salary|pay.?slip", "salary_slip"),
+    (r"\bcv\b|resume|curriculum", "cv"), (r"visa.?application|application.?form", "application_form"),
+    (r"certificate|diploma|degree|education|\bal\b|\bol\b|a/l|o/l", "academic_certificate"),
+]
+
+
+def classify_filename(name: str | None) -> str | None:
+    stem = re.sub(r"\.(pdf|jpe?g|png)$", "", (name or "").lower().replace("_", " "), flags=re.I)
+    return next((t for pat, t in FILENAME_HINTS if re.search(pat, stem)), None)
+
+
 # ------------------------------------------------------------------ fields
 @dataclass
 class Field:

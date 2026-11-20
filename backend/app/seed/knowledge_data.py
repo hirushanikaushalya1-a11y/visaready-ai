@@ -506,7 +506,7 @@ _LETTER = dict(kind="writing", price_cents=1000, currency="EUR", sla_hours=24)
 SERVICES = [
     dict(code="free_assessment", kind="assessment", name="Free file-strength assessment", price_cents=0, currency="EUR", sort_order=1,
          description="Find out how strong your visa file is — free.",
-         inclusions=["Secure application workspace", "Personal profile assessment", "Up to 40 document uploads (15 MB each; PDF, JPG, PNG)",
+         inclusions=["Secure application workspace", "Personal profile assessment", "Up to 40 document uploads (40 MB each; PDF, JPG, PNG)",
                      "Document reading, classification and consistency checks", "Personalised country-specific checklist",
                      "Readiness score with a full explanation", "Missing evidence, inconsistencies and questions to prepare for",
                      "Up to 10 assessment runs per application as you improve your file"],

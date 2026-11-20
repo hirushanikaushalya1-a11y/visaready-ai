@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # --- package limits (shown to the applicant before payment) --------
     assessment_price_usd: str = "33.00"
     max_documents_per_application: int = 40
-    max_file_size_mb: int = 15
+    max_file_size_mb: int = 40
     included_reassessments: int = 9  # free plan: 10 assessment runs per application
     retention_days_after_completion: int = 30
 

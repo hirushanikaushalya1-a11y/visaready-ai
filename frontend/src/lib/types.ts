@@ -63,7 +63,7 @@ export type Assessment = {
 export type Doc = {
   id: string; filename: string; content_type: string; size_bytes: number; declared_type: string | null; detected_type: string | null;
   detected_type_label: string | null; classification_confidence: number | null; status: string; page_count: number | null;
-  checklist_item_key: string | null; quality: { issues?: string[]; non_latin_scripts?: string[] }; processing_error: string | null;
+  checklist_item_key: string | null; quality: { issues?: string[]; non_latin_scripts?: string[]; pages?: number }; processing_error: string | null;
   created_at: string; authenticity_note: string;
   fields?: { name: string; value: string; normalized: string | null; page: number | null; snippet: string | null; confidence: number; method: string }[];
 };

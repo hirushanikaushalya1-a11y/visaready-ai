@@ -1,59 +1,74 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, FileText, Loader2, Sparkles, UploadCloud, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, Loader2, Sparkles, UploadCloud } from "lucide-react";
 import { ApiError, upload } from "@/lib/api";
 import type { AiReview, Application, Doc } from "@/lib/types";
 import { Alert, Badge, Button, Card, cx, SectionTitle, severityTone } from "./ui";
 
 const ACCEPT = ["application/pdf", "image/jpeg", "image/png"];
-type Item = { key: string; name: string; state: "uploading" | "done" | "error"; error?: string; file?: File };
+type Item = { key: string; name: string; state: "waiting" | "sending" | "done" | "error"; problem?: string; file?: File };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const BIG = 10 * 1024 * 1024;
 
-/** Uploads one file, retrying automatically when the server is busy, restarting or the connection drops. */
-async function uploadWithRetry(appId: string, f: File, onRetry: (n: number) => void) {
+/** Uploads one file. Busy server, restart or a dropped connection: waits and tries again quietly. */
+async function uploadQuietly(appId: string, f: File) {
   for (let attempt = 1; ; attempt++) {
     const fd = new FormData();
     fd.append("file", f);
     try {
       return await upload(`/applications/${appId}/documents`, fd);
     } catch (e) {
-      const status = e instanceof ApiError ? e.status : 0; // 0 = network error / server restarting
+      const status = e instanceof ApiError ? e.status : 0; // 0 = connection dropped / server restarting
       const transient = status === 0 || status === 429 || status >= 500;
-      if (!transient || attempt >= 5) throw e;
-      onRetry(attempt);
-      await sleep(Math.min(30_000, 4_000 * attempt));
+      if (!transient || attempt >= 6) throw e;
+      await sleep(Math.min(30_000, 5_000 * attempt)); // about 75 seconds of patience in total
     }
   }
 }
 
-function friendly(e: unknown) {
-  if (e instanceof ApiError) return e.status >= 500 ? "The server was busy — press Try again" : e.message;
-  return "Connection lost — press Try again";
+/** One plain-language sentence for anything that still fails after retrying. */
+function plainProblem(f: File, e?: unknown): string {
+  if (/\.(docx?|odt|pages)$/i.test(f.name)) return "This is a Word file — open it and choose Save as PDF, then add it again.";
+  if (/\.(heic|heif)$/i.test(f.name)) return "This is an iPhone photo format — take a screenshot of it or export it as JPG, then add it again.";
+  if (e instanceof ApiError && e.status === 413) return "This file is too large. Scan it at a lower quality or split it into two files.";
+  if (e instanceof ApiError && e.status < 500 && e.status !== 429) return e.message;
+  return "The connection dropped. Press Send again.";
 }
 
-/** Big drag-and-drop area: drop every document at once. No document types to choose. */
+/** Big drag-and-drop area. Drop everything at once — no types to choose, no forms, no error lists. */
 export function DropZone({ app, onUploaded, compact = false, onBatchDone }: { app: Application; onUploaded: () => void; compact?: boolean; onBatchDone?: () => void }) {
   const [over, setOver] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const input = useRef<HTMLInputElement>(null);
+  const maxBytes = app.limits.max_file_size_mb * 1024 * 1024;
 
   async function run(batch: Item[]) {
     const set = (key: string, patch: Partial<Item>) => setItems((cur) => cur.map((x) => (x.key === key ? { ...x, ...patch } : x)));
-    // Two at a time: quick for large batches, gentle on the server while it reads earlier documents.
     let next = 0;
+    let bigLock: Promise<unknown> = Promise.resolve();
     async function worker() {
       while (next < batch.length) {
         const it = batch[next++];
         const f = it.file!;
-        if (!ACCEPT.includes(f.type) && !/\.(pdf|jpe?g|png)$/i.test(f.name)) { set(it.key, { state: "error", error: "Only PDF, JPG or PNG", file: undefined }); continue; }
-        if (f.size > app.limits.max_file_size_mb * 1024 * 1024) { set(it.key, { state: "error", error: `Larger than ${app.limits.max_file_size_mb} MB — please compress or split it`, file: undefined }); continue; }
+        if (!ACCEPT.includes(f.type) && !/\.(pdf|jpe?g|png)$/i.test(f.name)) { set(it.key, { state: "error", problem: plainProblem(f), file: undefined }); continue; }
+        if (f.size > maxBytes) { set(it.key, { state: "error", problem: plainProblem(f, new ApiError(413, "")), file: undefined }); continue; }
+        set(it.key, { state: "sending" });
         try {
-          await uploadWithRetry(app.id, f, (n) => set(it.key, { state: "uploading", error: `Retrying (${n})…` }));
-          set(it.key, { state: "done", error: undefined, file: undefined });
+          if (f.size > BIG) {
+            // Large scans go one at a time so the server never runs short of memory.
+            const prev = bigLock;
+            let release!: () => void;
+            bigLock = new Promise<void>((r) => (release = r));
+            await prev;
+            try { await uploadQuietly(app.id, f); } finally { release(); }
+          } else {
+            await uploadQuietly(app.id, f);
+          }
+          set(it.key, { state: "done", file: undefined, problem: undefined });
           onUploaded();
-        } catch (e) { set(it.key, { state: "error", error: friendly(e) }); }
+        } catch (e) { set(it.key, { state: "error", problem: plainProblem(f, e) }); }
       }
     }
     await Promise.all([worker(), worker()]);
@@ -63,14 +78,19 @@ export function DropZone({ app, onUploaded, compact = false, onBatchDone }: { ap
 
   function handle(files: FileList | File[]) {
     const list = Array.from(files);
-    const fresh: Item[] = list.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name, state: "uploading", file: f }));
-    setItems((cur) => [...fresh, ...cur].slice(0, 60));
+    const fresh: Item[] = list.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name, state: "waiting", file: f }));
+    setItems((cur) => [...cur.filter((x) => x.state !== "done"), ...fresh]);
     void run(fresh);
   }
 
-  const retryable = items.filter((x) => x.state === "error" && x.file);
-  function retryFailed() {
-    const batch = retryable.map((x) => ({ ...x, state: "uploading" as const, error: undefined }));
+  const busy = items.some((x) => x.state === "waiting" || x.state === "sending");
+  const done = items.filter((x) => x.state === "done").length;
+  const failed = items.filter((x) => x.state === "error");
+  const retryable = failed.filter((x) => x.file);
+  const pct = items.length ? Math.round(((done + failed.length) / items.length) * 100) : 0;
+
+  function sendAgain() {
+    const batch = retryable.map((x) => ({ ...x, state: "waiting" as const, problem: undefined }));
     setItems((cur) => cur.map((x) => batch.find((b) => b.key === x.key) ?? x));
     void run(batch);
   }
@@ -78,7 +98,7 @@ export function DropZone({ app, onUploaded, compact = false, onBatchDone }: { ap
   return (
     <div>
       <div
-        role="button" tabIndex={0} aria-label="Drop documents here or press to choose files"
+        role="button" tabIndex={0} aria-label="Add documents: drop them here or press to choose files"
         onClick={() => input.current?.click()}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") input.current?.click(); }}
         onDragOver={(e) => { e.preventDefault(); setOver(true); }}
@@ -88,37 +108,47 @@ export function DropZone({ app, onUploaded, compact = false, onBatchDone }: { ap
           compact ? "px-4 py-6" : "px-6 py-12",
           over ? "border-accent bg-accent-soft/60" : "border-line bg-surface-2/50 hover:border-accent/60 hover:bg-accent-soft/30")}>
         <UploadCloud className={cx("text-accent", compact ? "h-8 w-8" : "h-12 w-12")} aria-hidden />
-        <p className={cx("mt-3 font-semibold text-ink", compact ? "text-base" : "text-lg")}>Drop all your documents here</p>
-        <p className="mt-1 max-w-md text-sm text-ink-3">Passport, bank statements, certificates, letters — everything at once. Or <span className="font-medium text-accent underline">choose files</span>. We work out what each document is.</p>
-        <p className="mt-2 text-xs text-ink-3">PDF, JPG or PNG · up to {app.limits.max_file_size_mb} MB each · encrypted immediately</p>
+        <p className={cx("mt-3 font-semibold text-ink", compact ? "text-base" : "text-lg")}>{compact ? "Add more documents" : "Drop all your documents here"}</p>
+        <p className="mt-1 max-w-md text-sm text-ink-3">Select everything at once — passport, certificates, bank papers, letters. On a phone, tap here and pick photos or files. We work out what each one is.</p>
+        <span className="mt-4 inline-flex items-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-white">Choose files</span>
+        <p className="mt-3 text-xs text-ink-3">PDF or photos (JPG, PNG) · up to {app.limits.max_file_size_mb} MB each · private and encrypted</p>
         <input ref={input} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="hidden"
           onChange={(e) => { if (e.target.files?.length) handle(e.target.files); e.target.value = ""; }} />
       </div>
-      {items.some((x) => x.state !== "done") && (
-        <ul className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-          {items.filter((x) => x.state !== "done").map((x) => (
-            <li key={x.key} className="flex min-w-0 items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-sm">
-              {x.state === "uploading" ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent" aria-hidden />
-                : x.state === "done" ? <CheckCircle2 className="h-4 w-4 shrink-0 text-ok" aria-hidden /> : <XCircle className="h-4 w-4 shrink-0 text-bad" aria-hidden />}
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-ink-2">{x.name}</span>
-                <span className={cx("block text-xs", x.state === "error" ? "text-bad" : "text-ink-3")}>{x.state === "uploading" ? (x.error ?? "Uploading…") : x.state === "done" ? "Uploaded" : x.error}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {retryable.length > 0 && !items.some((x) => x.state === "uploading") && (
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <Button onClick={retryFailed}>Try again ({retryable.length} {retryable.length === 1 ? "file" : "files"})</Button>
-          <span className="text-sm text-ink-3">Files that uploaded are safe — only the failed ones are sent again.</span>
+
+      {items.length > 0 && (
+        <div className="mt-3 rounded-xl border border-line bg-surface p-4" aria-live="polite">
+          {busy ? (
+            <>
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="flex items-center gap-2 font-medium text-ink"><Loader2 className="h-4 w-4 animate-spin text-accent" aria-hidden />Sending your documents… {done} of {items.length}</span>
+                <span className="text-ink-3">Please keep this page open</span>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${pct}%` }} /></div>
+            </>
+          ) : (
+            <p className="flex items-center gap-2 text-sm font-medium text-ink">
+              <CheckCircle2 className="h-5 w-5 text-ok" aria-hidden />
+              {done} {done === 1 ? "document" : "documents"} received safely{failed.length === 0 ? ". We are reading them now." : "."}
+            </p>
+          )}
+          {!busy && failed.length > 0 && (
+            <div className="mt-3 rounded-lg bg-surface-2 p-3">
+              <p className="text-sm font-medium text-ink">{failed.length === 1 ? "1 file needs your attention" : `${failed.length} files need your attention`}</p>
+              <ul className="mt-2 space-y-1.5">
+                {failed.map((x) => (
+                  <li key={x.key} className="text-sm"><span className="font-medium text-ink-2">{x.name}</span><span className="block text-ink-3">{x.problem}</span></li>
+                ))}
+              </ul>
+              {retryable.length > 0 && <Button className="mt-3" onClick={sendAgain}>Send again</Button>}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-/** The one-step flow: drop documents, press one button, get the result. */
 export function QuickCheck({ app, docs, reloadDocs, onCheck, checking, hasResult }:
   { app: Application; docs: Doc[]; reloadDocs: () => void; onCheck: () => void; checking: boolean; hasResult: boolean }) {
   const reading = docs.filter((d) => ["uploaded", "processing"].includes(d.status)).length;
