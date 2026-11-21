@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VisaReady Upload Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f7fb;--surface:#fff;--surface2:#f0f3f8;--line:#e2e7ef;--ink:#13203a;--ink2:#3c4a63;--ink3:#6b778c;--navy:#0f1f4b;--accent:#0f8a86;--accentSoft:#e3f4f3;--ok:#1d8a4e;--okSoft:#e4f5ec;--bad:#c0392b;--badSoft:#fbe9e7;--warn:#b26b00}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1424;--surface:#141d31;--surface2:#1b2640;--line:#2a3654;--ink:#eef2fa;--ink2:#c3cbdb;--ink3:#8d98ae;--navy:#22336b;--accent:#2fb5ae;--accentSoft:#173a3c;--ok:#43c07a;--okSoft:#173527;--bad:#f07264;--badSoft:#3a1d1b}}
+:root[data-theme="dark"]{--bg:#0d1424;--surface:#141d31;--surface2:#1b2640;--line:#2a3654;--ink:#eef2fa;--ink2:#c3cbdb;--ink3:#8d98ae;--navy:#22336b;--accent:#2fb5ae;--accentSoft:#173a3c;--ok:#43c07a;--okSoft:#173527;--bad:#f07264;--badSoft:#3a1d1b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;line-height:1.5}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 16px 64px}
+.head{background:var(--navy);color:#fff;border-radius:16px;overflow:hidden}
+.head .top{padding:18px 22px}
+.head small{letter-spacing:.08em;text-transform:uppercase;opacity:.7;font-size:12px;font-weight:600}
+.head h1{margin:4px 0 0;font-size:20px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid rgba(255,255,255,.12)}
+.step{padding:12px 22px;font-size:14px;display:flex;gap:10px;align-items:center;opacity:.6}
+.step+.step{border-left:1px solid rgba(255,255,255,.12)}
+.step.on{opacity:1}
+.dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.15);font-size:12px}
+.step.on .dot{background:var(--accent)}
+.drop{margin-top:18px;border:2px dashed var(--line);border-radius:18px;background:var(--surface);padding:44px 20px;text-align:center;cursor:pointer;transition:.2s}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accentSoft)}
+.drop h2{margin:10px 0 4px;font-size:19px}
+.drop p{margin:0 auto;max-width:440px;color:var(--ink3);font-size:14px}
+.btn{display:inline-block;margin-top:16px;background:var(--navy);color:#fff;border:0;border-radius:999px;padding:11px 24px;font:600 14px Inter,sans-serif;cursor:pointer}
+.btn.accent{background:var(--accent)}
+.fine{margin-top:12px;font-size:12px;color:var(--ink3)}
+.panel{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.bar{height:8px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-top:12px}
+.bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .4s}
+.row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:14px}
+.attn{margin-top:12px;background:var(--surface2);border-radius:10px;padding:12px;font-size:14px}
+.attn b{display:block;color:var(--ink2);font-weight:600}
+.attn span{color:var(--ink3)}
+h3{margin:28px 0 12px;font-size:17px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+.card .t{display:flex;gap:12px;align-items:flex-start}
+.ic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;flex-shrink:0;background:var(--okSoft);color:var(--ok);font-weight:700}
+.ic.read{background:var(--accentSoft);color:var(--accent)}
+.name{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fn{font-size:12px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card p{margin:10px 0 0;font-size:12.5px;color:var(--ink2)}
+.spin{width:18px;height:18px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s 0.8s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+.done{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.note{margin-top:28px;font-size:12px;color:var(--ink3);text-align:center}
+.hidden{display:none}
+@media (max-width:600px){.steps{grid-template-columns:1fr}.step+.step{border-left:0;border-top:1px solid rgba(255,255,255,.12)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="top"><small>Visa file check</small><h1>Student visa · New Zealand</h1></div>
+    <div class="steps">
+      <div class="step on" id="s1"><span class="dot">1</span>Drop your documents</div>
+      <div class="step" id="s2"><span class="dot">2</span>We read every page</div>
+      <div class="step" id="s3"><span class="dot">3</span>Your file report</div>
+    </div>
+  </div>
+
+  <div class="drop" id="drop" role="button" tabindex="0" aria-label="Add documents">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+    <h2 id="dropTitle">Drop all your documents here</h2>
+    <p>Select everything at once — passport, certificates, bank papers, letters. On a phone, tap here and pick photos or files. We work out what each one is.</p>
+    <span class="btn">Choose files</span>
+    <div class="fine">PDF or photos (JPG, PNG) · up to 40 MB each · private and encrypted</div>
+    <input type="file" id="file" multiple class="hidden">
+  </div>
+
+  <div class="panel hidden" id="panel" aria-live="polite">
+    <div id="sending"><div class="row"><span class="done"><span class="spin" style="color:var(--accent)"></span><span id="count">Sending your documents…</span></span><span style="color:var(--ink3)">Please keep this page open</span></div><div class="bar"><i id="fill"></i></div></div>
+    <div id="received" class="hidden"><span class="done"><span style="color:var(--ok)">✓</span><span id="recText"></span></span></div>
+    <div id="attn" class="attn hidden"></div>
+  </div>
+
+  <h3 id="docsTitle" class="hidden">Your documents</h3>
+  <div class="grid" id="grid"></div>
+
+  <div class="note">Demo of the VisaReady AI upload screen. Files stay on your computer — nothing is sent anywhere. The real site reads every page and checks your file.</div>
+</div>
+
+<script>
+const HINTS=[[/passport(?!.*photo)/,"Passport"],[/\bnic\b|national.?id|identity.?card/,"National identity card"],[/ticket|itinerar|flight|booking/,"Flight ticket / itinerary"],[/photo/,"Photograph"],[/\bbc\b|birth/,"Birth certificate"],[/marriage/,"Marriage certificate"],[/police/,"Police clearance certificate"],[/medical/,"Medical examination report"],[/ielts|toefl|\bpte\b|duolingo|english.?test/,"English language test result"],[/offer|acceptance|\bcoe\b|\bcas\b|\bloa\b/,"Offer / acceptance letter"],[/transcript/,"Academic transcript"],[/statement.?of.?purpose|\bsop\b|personal.?statement/,"Statement of purpose"],[/sponsor/,"Sponsorship documents"],[/relationship/,"Relationship evidence"],[/affidavit/,"Affidavit"],[/\bfd\b|fixed.?deposit|saving|source.?of.?fund|land|deed|loan/,"Savings, deposits or source of funds"],[/payment|receipt|tuition|fee/,"Tuition / fee payment receipt"],[/bank.?statement|statement/,"Bank statement"],[/employ|experience|service.?letter/,"Employment letter"],[/salary|pay.?slip/,"Salary slip"],[/\bcv\b|resume|curriculum/,"CV / résumé"],[/visa.?application|application.?form/,"Visa application form"],[/certificate|diploma|degree|education|\bal\b|\bol\b/,"Academic certificate"]];
+const kind=n=>{const s=n.toLowerCase().replace(/_/g," ").replace(/\.(pdf|jpe?g|png)$/i,"");const h=HINTS.find(([r])=>r.test(s));return h?h[1]:"Document received"};
+const problem=f=>/\.(docx?|odt|pages)$/i.test(f.name)?"This is a Word file — open it and choose Save as PDF, then add it again.":/\.(heic|heif)$/i.test(f.name)?"This is an iPhone photo format — take a screenshot of it or export it as JPG, then add it again.":!/\.(pdf|jpe?g|png)$/i.test(f.name)?"Please add this as a PDF or a photo (JPG or PNG).":f.size>40*1024*1024?"This file is too large. Scan it at a lower quality or split it into two files.":null;
+const $=id=>document.getElementById(id), seen=new Set();
+const drop=$("drop"),input=$("file");
+drop.onclick=()=>input.click();
+drop.onkeydown=e=>{if(e.key==="Enter"||e.key===" ")input.click()};
+drop.ondragover=e=>{e.preventDefault();drop.classList.add("over")};
+drop.ondragleave=()=>drop.classList.remove("over");
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove("over");handle([...e.dataTransfer.files])};
+input.onchange=()=>{handle([...input.files]);input.value=""};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function handle(files){
+  if(!files.length)return;
+  $("panel").classList.remove("hidden");$("sending").classList.remove("hidden");$("received").classList.add("hidden");$("attn").classList.add("hidden");
+  $("dropTitle").textContent="Add more documents";
+  const bad=[];let done=0;
+  for(const f of files){
+    $("count").textContent=`Sending your documents… ${done} of ${files.length}`;
+    $("fill").style.width=(done/files.length*100)+"%";
+    await sleep(250+Math.random()*350);
+    const p=problem(f);
+    if(p){bad.push([f.name,p]);done++;continue}
+    if(!seen.has(f.name+f.size)){seen.add(f.name+f.size);addCard(f)}
+    done++;
+  }
+  $("fill").style.width="100%";
+  $("sending").classList.add("hidden");$("received").classList.remove("hidden");
+  const ok=files.length-bad.length;
+  $("recText").textContent=`${ok} ${ok===1?"document":"documents"} received safely.${bad.length?"":" We are reading them now."}`;
+  if(bad.length){$("attn").classList.remove("hidden");$("attn").innerHTML=`<div style="font-weight:600;margin-bottom:8px">${bad.length===1?"1 file needs your attention":bad.length+" files need your attention"}</div>`+bad.map(([n,p])=>`<div style="margin-top:6px"><b>${esc(n)}</b><span>${p}</span></div>`).join("")}
+}
+function addCard(f){
+  $("docsTitle").classList.remove("hidden");$("s2").classList.add("on");
+  const c=document.createElement("div");c.className="card";
+  c.innerHTML=`<div class="t"><span class="ic read"><span class="spin"></span></span><div style="min-width:0"><div class="name">Reading…</div><div class="fn">${esc(f.name)}</div></div></div><p>Received safely. Reading the pages…</p>`;
+  $("grid").prepend(c);
+  setTimeout(()=>{c.querySelector(".ic").className="ic";c.querySelector(".ic").textContent="✓";c.querySelector(".name").textContent=kind(f.name);c.querySelector("p").textContent="Received. Checked in full in your file check.";
+    if(![...document.querySelectorAll(".ic.read")].length)$("s3").classList.add("on")},1500+Math.random()*2500);
+}
+</script>
+</body>
+</html>
